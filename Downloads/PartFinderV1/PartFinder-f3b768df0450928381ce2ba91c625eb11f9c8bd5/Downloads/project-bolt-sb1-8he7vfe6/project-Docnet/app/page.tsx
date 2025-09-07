@@ -1,10 +1,14 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Search, Phone, Mail, MapPin, Car, Wrench, Package, ShoppingCart, User, Clock, X } from 'lucide-react';
+import { Search, Phone, Mail, MapPin, Car, Wrench, Package, ShoppingCart, User, Clock, X, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useSessionMock } from '@/hooks/use-session-mock';
+import { authMock } from '@/lib/mocks/auth';
 
 // TODO: Integrar con API de TecDoc para búsqueda de recambios reales
 // FIXME: Implementar validación de matrícula y código motor
@@ -68,16 +72,15 @@ export default function Home(): JSX.Element {
     motorCode: '',
     licensePlate: ''
   });
+  const router = useRouter();
+  const { user, isAuthenticated, logout } = useSessionMock();
 
-  // TODO: Implementar lógica de búsqueda real conectada a base de datos
   const handleSearch = () => {
     console.log('Searching with:', searchForm, 'Selected brand:', selectedBrand);
-    // FIXME: Agregar validación de formulario y manejo de errores
   };
 
   const handleBrandSelect = (brandName: string) => {
     setSelectedBrand(brandName);
-    // TODO: Filtrar recambios por marca seleccionada
   };
 
   const handleAddToCart = () => {
@@ -85,8 +88,8 @@ export default function Home(): JSX.Element {
   };
 
   const handleUserClick = () => {
-    console.log('User profile clicked');
-    // TODO: Implementar funcionalidad de perfil de usuario
+    if (isAuthenticated) router.push('/account');
+    else router.push('/login');
   };
 
   const handleCloseOfferBar = () => {
@@ -94,11 +97,15 @@ export default function Home(): JSX.Element {
   };
 
   const handleRegisterClick = () => {
-    console.log('Register clicked for discount');
-    // TODO: Implementar funcionalidad de registro
+    router.push('/register');
   };
 
-  // Countdown timer effect
+  async function handleLogout() {
+    await authMock.logout();
+    await logout();
+    router.replace('/');
+  }
+
   React.useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(prevTime => {
@@ -109,7 +116,7 @@ export default function Home(): JSX.Element {
         } else if (prevTime.hours > 0) {
           return { hours: prevTime.hours - 1, minutes: 59, seconds: 59 };
         } else {
-          return { hours: 23, minutes: 59, seconds: 59 }; // Reset to 24h
+          return { hours: 23, minutes: 59, seconds: 59 };
         }
       });
     }, 1000);
@@ -119,33 +126,29 @@ export default function Home(): JSX.Element {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      {/* Offer Bar */}
       {showOfferBar && (
         <div className="bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-white py-3 px-4 relative">
-          <div className="container mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-4 flex-1">
-              {/* Offer Text */}
-              <div className="flex items-center space-x-2">
-                <div className="bg-white/20 p-1 rounded-full">
+          <div className="container mx-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center justify-between gap-3 sm:justify-start sm:space-x-4 flex-1 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="bg-white/20 p-1 rounded-full shrink-0">
                   <Package className="h-4 w-4" />
                 </div>
-                <span className="font-semibold text-sm md:text-base">
+                <span className="font-semibold text-sm md:text-base leading-snug break-words">
                   ¡Regístrate ahora y recibe un 10% de descuento en discos y pastillas!
                 </span>
               </div>
-              
-              {/* Register Button */}
               <Button 
                 onClick={handleRegisterClick}
-                className="bg-white text-orange-600 hover:bg-gray-100 font-bold px-4 py-1 text-sm transition-colors"
+                className="bg-white text-orange-600 hover:bg-gray-100 font-bold px-3 py-1 text-xs sm:text-sm transition-colors shrink-0"
                 size="sm"
+                aria-label="Registrarse"
               >
                 REGISTRARSE
               </Button>
             </div>
 
-            {/* Countdown Timer */}
-            <div className="flex items-center space-x-3">
+            <div className="hidden sm:flex items-center space-x-3">
               <div className="flex items-center space-x-1">
                 <Clock className="h-4 w-4" />
                 <span className="text-xs md:text-sm font-medium">Termina en:</span>
@@ -174,10 +177,10 @@ export default function Home(): JSX.Element {
               </div>
             </div>
 
-            {/* Close Button */}
             <button 
               onClick={handleCloseOfferBar}
-              className="ml-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+              className="absolute right-2 top-2 p-1 hover:bg-white/20 rounded-full transition-colors sm:static sm:ml-4"
+              aria-label="Cerrar barra"
             >
               <X className="h-4 w-4" />
             </button>
@@ -185,21 +188,19 @@ export default function Home(): JSX.Element {
         </div>
       )}
 
-      {/* Header */}
       <header className="bg-red-600 text-white shadow-lg">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Wrench className="h-8 w-8" />
-              <h1 className="text-2xl font-bold">PartFinder</h1>
+            <div className="flex items-center space-x-2 min-w-0">
+              <Wrench className="h-8 w-8 shrink-0" />
+              <h1 className="text-xl sm:text-2xl font-bold truncate">PartFinder</h1>
             </div>
 
-            {/* Mobile User Actions */}
-            <div className="flex lg:hidden items-center space-x-3">
-              {/* Mobile Shopping Cart */}
+            <div className="flex lg:hidden items-center gap-2 flex-wrap">
               <button 
                 onClick={handleAddToCart}
                 className="relative flex items-center hover:text-red-200 transition-colors"
+                aria-label="Carrito"
               >
                 <ShoppingCart className="h-6 w-6" />
                 {cartItems > 0 && (
@@ -209,27 +210,40 @@ export default function Home(): JSX.Element {
                 )}
               </button>
 
-              {/* Mobile User Profile */}
               <button 
                 onClick={handleUserClick}
                 className="flex items-center hover:text-red-200 transition-colors"
+                aria-label={isAuthenticated ? 'Mi cuenta' : 'Login'}
               >
                 <User className="h-6 w-6" />
               </button>
+
+              {!isAuthenticated ? (
+                <>
+                  <Link href="/login" className="text-xs underline">Login</Link>
+                  <Link href="/register" className="text-xs underline">Registro</Link>
+                </>
+              ) : (
+                <button onClick={handleLogout} className="flex items-center hover:text-red-200 transition-colors" aria-label="Salir">
+                  <LogOut className="h-6 w-6" />
+                </button>
+              )}
             </div>
             
-            {/* Navigation */}
             <nav className="hidden md:flex items-center space-x-8">
               <a href="#catalogo" className="hover:text-red-200 transition-colors">Catálogos</a>
-            
               <a href="#remotos" className="hover:text-red-200 transition-colors">Remotos</a>
               <a href="#gestion" className="hover:text-red-200 transition-colors">Gestión</a>
+              {!isAuthenticated ? (
+                <>
+                  <Link href="/login" className="hover:text-red-200 transition-colors">Login</Link>
+                  <Link href="/register" className="hover:text-red-200 transition-colors">Registro</Link>
+                </>
+              ) : null}
             </nav>
 
-            {/* Contact Info & User Actions */}
-            <div className="hidden lg:flex items-center space-x-6 text-sm">
-              {/* Contact Info */}
-              <div className="flex items-center space-x-4">
+            <div className="hidden lg:flex items-center space-x-4 text-sm">
+              <div className="hidden xl:flex items-center space-x-4">
                 <div className="flex items-center space-x-1">
                   <Phone className="h-4 w-4" />
                   <span>+34 900 123 456</span>
@@ -240,29 +254,32 @@ export default function Home(): JSX.Element {
                 </div>
               </div>
 
-              {/* User Actions */}
-              <div className="flex items-center space-x-4">
-                {/* Shopping Cart */}
-                <button 
-                  onClick={handleAddToCart}
-                  className="relative flex items-center space-x-1 hover:text-red-200 transition-colors"
-                >
-                  <ShoppingCart className="h-5 w-5" />
-                  {cartItems > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-white text-red-600 text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                      {cartItems}
-                    </span>
-                  )}
-                </button>
+              <button 
+                onClick={handleAddToCart}
+                className="relative flex items-center space-x-1 hover:text-red-200 transition-colors"
+                aria-label="Carrito"
+              >
+                <ShoppingCart className="h-5 w-5" />
+                {cartItems > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-white text-red-600 text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                    {cartItems}
+                  </span>
+                )}
+              </button>
 
-                {/* User Profile */}
-                <button 
-                  onClick={handleUserClick}
-                  className="flex items-center space-x-1 hover:text-red-200 transition-colors"
-                >
-                  <User className="h-5 w-5" />
+              <button 
+                onClick={handleUserClick}
+                className="flex items-center space-x-1 hover:text-red-200 transition-colors"
+                aria-label={isAuthenticated ? 'Mi cuenta' : 'Login'}
+              >
+                <User className="h-5 w-5" />
+              </button>
+
+              {isAuthenticated && (
+                <button onClick={handleLogout} className="flex items-center space-x-1 hover:text-red-200 transition-colors" aria-label="Salir">
+                  <LogOut className="h-5 w-5" />
                 </button>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -415,7 +432,7 @@ export default function Home(): JSX.Element {
                         onError={(e) => {
                           // Fallback si la imagen no carga
                           e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11C5.84 5 5.28 5.42 5.08 6.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-1.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg></div>';
+                          e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11C5.84 5 5.28 5.42 5.08 6.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-1.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg></div>';
                         }}
                       />
                     </div>
