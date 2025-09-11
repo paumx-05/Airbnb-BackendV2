@@ -52,7 +52,11 @@ export default function NotFound() {
           </Link>
           
           <button
-            onClick={() => window.history.back()}
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.history.back();
+              }
+            }}
             className="flex items-center justify-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
           >
             <ArrowLeft className="w-5 h-5" />
