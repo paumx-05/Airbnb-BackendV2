@@ -110,3 +110,4 @@ export default function Header({ cartItems, onAddToCart }: HeaderProps) {
     </header>
   );
 }
+

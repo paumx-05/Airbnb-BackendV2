@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import VehicleInfo from '@/components/VehicleInfo';
+import PartsSection from '@/components/PartsSection';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 
@@ -19,7 +20,7 @@ export default function VehiclePage({ params }: { params: { licensePlate: string
 
   useEffect(() => {
     if (plate === '0251FZL') {
-      setVehicleData({ licensePlate: plate, vin: '12345678912345678', brand: 'Seat', model: 'Grande Punto', year: '25/01/2008' });
+      setVehicleData({ licensePlate: plate, vin: '12345678912345678', brand: 'Fiat', model: 'Grande Punto', year: '25/01/2008' });
     } else {
       setVehicleData({ licensePlate: plate, vin: 'Desconocido', brand: 'Desconocida', model: 'Desconocido', year: '-' });
     }
@@ -41,9 +42,9 @@ export default function VehiclePage({ params }: { params: { licensePlate: string
           onSearch={handleSearch}
         />
       )}
-      <div className="container mx-auto px-4 py-8">
-        {/* Aquí irá el contenido principal una vez implementado */}
-      </div>
+      {vehicleData && (
+        <PartsSection vehicleData={vehicleData} />
+      )}
     </>
   );
 }
