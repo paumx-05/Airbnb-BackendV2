@@ -47,3 +47,4 @@ export default function VehicleInfo({ vehicleData, plate, onPlateChange, onSearc
     </header>
   );
 }
+
