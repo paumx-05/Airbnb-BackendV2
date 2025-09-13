@@ -20,7 +20,7 @@ const PropertyCard = ({ property }: { property: AirbnbProperty }) => {
       onClick={handleCardClick}
     >
       {/* Imagen de la propiedad */}
-      <div className="relative h-48">
+      <div className="relative h-40 sm:h-48">
         <img
           src={property.imageUrl}
           alt={property.title}
@@ -34,7 +34,7 @@ const PropertyCard = ({ property }: { property: AirbnbProperty }) => {
       </div>
 
       {/* Contenido de la tarjeta */}
-      <div className="p-4">
+      <div className="p-3 sm:p-4">
         {/* Ubicación y tipo */}
         <div className="flex justify-between items-start mb-2">
           <span className="text-sm text-gray-600">{property.location}</span>
@@ -53,23 +53,23 @@ const PropertyCard = ({ property }: { property: AirbnbProperty }) => {
         </div>
 
         {/* Título */}
-        <h3 className="font-medium text-gray-900 mb-2 line-clamp-2">
+        <h3 className="font-medium text-gray-900 mb-2 line-clamp-2 text-sm sm:text-base">
           {property.title}
         </h3>
 
         {/* Amenidades destacadas */}
         <div className="flex flex-wrap gap-1 mb-3">
-          {property.amenities.slice(0, 3).map((amenity) => (
+          {property.amenities.slice(0, 2).map((amenity) => (
             <span
               key={amenity}
-              className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded"
+              className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"
             >
               {amenity}
             </span>
           ))}
-          {property.amenities.length > 3 && (
+          {property.amenities.length > 2 && (
             <span className="text-xs text-gray-500">
-              +{property.amenities.length - 3} más
+              +{property.amenities.length - 2} más
             </span>
           )}
         </div>
@@ -118,11 +118,11 @@ const AirbnbResults = () => {
   return (
     <div className="w-full">
       {/* Header con información de resultados */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+      <div className="mb-4 md:mb-6">
+        <h2 className="text-lg md:text-2xl font-bold text-gray-900 mb-2">
           Alojamientos disponibles
         </h2>
-        <p className="text-gray-600">
+        <p className="text-sm md:text-base text-gray-600">
           {isSearching ? 'Buscando alojamientos...' : `${filteredProperties.length} alojamientos encontrados`}
         </p>
       </div>
@@ -153,7 +153,7 @@ const AirbnbResults = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {filteredProperties.map((property) => (
                 <PropertyCard key={property.id} property={property} />
               ))}

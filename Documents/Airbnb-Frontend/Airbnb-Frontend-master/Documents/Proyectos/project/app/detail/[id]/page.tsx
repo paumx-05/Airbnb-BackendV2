@@ -1,4 +1,5 @@
 import PropertyDetail from '@/components/PropertyDetail';
+import Header from '@/components/Header';
 import { mockProperties } from '@/lib/mockData';
 
 // Interfaz para las props de la página de detalle
@@ -20,6 +21,10 @@ export async function generateStaticParams() {
 const PropertyPage = ({ params }: PropertyPageProps) => {
   return (
     <div className="property-page min-h-screen bg-gray-50">
+      {/* Header principal presente en todas las páginas */}
+      <Header />
+      
+      {/* Contenido específico de la página de detalle */}
       <PropertyDetail propertyId={params.id} />
     </div>
   );

@@ -1,15 +1,14 @@
 import Header from '@/components/Header';
 import OfferTopBar from '@/components/OfferTopBar';
-import CategoryTabs from '@/components/CategoryTabs';
-import MainContent from '@/components/MainContent';
 import AirbnbSearchModule from '@/components/AirbnbSearchModule';
 import AirbnbFilters from '@/components/AirbnbFilters';
 import AirbnbResults from '@/components/AirbnbResults';
+import Footer from '@/components/Footer';
 
 /**
- * Main Landing Page Component - Página principal siguiendo diseño de referencia
- * Features: Header con búsqueda, tabs de categorías, grid de propiedades y mapa
- * Architecture: Layout exacto de la imagen de referencia de Airbnb
+ * Main Landing Page Component - Página principal limpia y funcional
+ * Features: Header con búsqueda, módulo de búsqueda Airbnb, filtros y resultados
+ * Architecture: Layout simplificado enfocado en funcionalidad principal
  * 
  * TODO: Agregar SEO metadata y datos estructurados
  * FIXME: Implementar boundaries de error para producción
@@ -18,7 +17,7 @@ import AirbnbResults from '@/components/AirbnbResults';
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-gray-100">
       {/* Offer TopBar */}
       <OfferTopBar 
         emoji={true}
@@ -32,13 +31,25 @@ export default function Home() {
       <Header />
       
       {/* Hero Section con Búsqueda Airbnb */}
-      <section className="bg-gradient-to-r from-red-500 to-red-600 py-16">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+      <section className="relative py-8 md:py-16 overflow-hidden">
+        {/* Imagen de Fondo Vacacional */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url('https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80')`,
+          }}
+        />
+        
+        {/* Overlay para mejorar legibilidad del texto */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-black/60"></div>
+        
+        {/* Contenido */}
+        <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-6 md:mb-8">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-3 md:mb-4 drop-shadow-lg px-2">
               Encuentra tu próximo alojamiento
             </h1>
-            <p className="text-xl text-red-100">
+            <p className="text-base sm:text-lg md:text-xl text-white drop-shadow-md px-4">
               Descubre lugares únicos para quedarte en todo el mundo
             </p>
           </div>
@@ -48,9 +59,12 @@ export default function Home() {
         </div>
       </section>
       
+      {/* Separador Visual */}
+      <div className="h-1 bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+      
       {/* Sección de Resultados con Filtros */}
-      <section className="py-8 bg-gray-50">
-        <div className="container mx-auto px-4">
+      <section className="py-6 md:py-12 bg-white">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           {/* Filtros Airbnb */}
           <AirbnbFilters />
           
@@ -59,11 +73,11 @@ export default function Home() {
         </div>
       </section>
       
-      {/* Category Filters */}
-      <CategoryTabs />
+      {/* Separador Visual */}
+      <div className="h-1 bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
       
-      {/* Main Content: Properties + Map */}
-      <MainContent />
+      {/* Footer con Información de Contacto */}
+      <Footer />
     </main>
   );
 }

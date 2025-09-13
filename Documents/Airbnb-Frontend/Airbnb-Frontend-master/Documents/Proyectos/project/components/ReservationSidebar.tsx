@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AirbnbProperty } from '@/lib/mockData';
+import { useReservationCart } from '@/context/ReservationCartContext';
 
 // Interfaz para las props del componente de sidebar de reserva
 interface ReservationSidebarProps {
@@ -14,7 +15,9 @@ const ReservationSidebar = ({ property }: ReservationSidebarProps) => {
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(1);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const router = useRouter();
+  const { addToCart, isInCart } = useReservationCart();
 
   // Función para calcular el precio total basado en fechas y huéspedes
   const calculateTotal = () => {
@@ -62,6 +65,63 @@ const ReservationSidebar = ({ property }: ReservationSidebarProps) => {
     });
     
     router.push(`/checkout?${params.toString()}`);
+  };
+
+  // Función para agregar al carrito
+  const handleAddToCart = async () => {
+    if (!checkIn || !checkOut) {
+      alert('Por favor selecciona las fechas de check-in y check-out');
+      return;
+    }
+    
+    if (guests > property.maxGuests) {
+      alert(`El máximo de huéspedes para esta propiedad es ${property.maxGuests}`);
+      return;
+    }
+
+    setIsAddingToCart(true);
+    
+    try {
+      // Crear item del carrito con datos de la reserva
+      const cartItem = {
+        propertyId: property.id,
+        checkIn,
+        checkOut,
+        guests,
+        totalNights: calculateNights(),
+        subtotal: calculateTotal(),
+        cleaningFee: 0, // Por simplicidad, sin fees adicionales
+        serviceFee: 0,
+        taxes: calculateTaxes(),
+        total: calculateFinalTotal(),
+        propertyTitle: property.title,
+        propertyLocation: property.location,
+        propertyImage: property.imageUrl,
+      };
+
+      addToCart(cartItem);
+      
+      // Mostrar confirmación
+      alert('¡Reserva agregada al carrito!');
+      
+    } catch (error) {
+      console.error('Error agregando al carrito:', error);
+      alert('Error al agregar la reserva al carrito');
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
+  // Función para calcular noches
+  const calculateNights = () => {
+    if (!checkIn || !checkOut) return 0;
+    
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const timeDiff = checkOutDate.getTime() - checkInDate.getTime();
+    const nights = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+    
+    return nights > 0 ? nights : 0;
   };
 
   // Función para obtener la fecha mínima (hoy)
@@ -154,18 +214,43 @@ const ReservationSidebar = ({ property }: ReservationSidebarProps) => {
         </div>
       </div>
 
-      {/* Botón de reserva */}
-      <button 
-        onClick={handleReservation}
-        disabled={!checkIn || !checkOut}
-        className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-          checkIn && checkOut
-            ? 'bg-red-600 hover:bg-red-700 text-white'
-            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-        }`}
-      >
-        {checkIn && checkOut ? `Reservar - €${finalTotal}` : 'Selecciona fechas'}
-      </button>
+      {/* Botones de acción */}
+      <div className="space-y-3">
+        {/* Botón de agregar al carrito */}
+        {checkIn && checkOut && (
+          <button 
+            onClick={handleAddToCart}
+            disabled={isAddingToCart || isInCart(property.id, checkIn, checkOut)}
+            className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
+              isAddingToCart
+                ? 'bg-blue-500 text-white cursor-not-allowed'
+                : isInCart(property.id, checkIn, checkOut)
+                ? 'bg-green-500 text-white cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
+          >
+            {isAddingToCart 
+              ? 'Agregando...' 
+              : isInCart(property.id, checkIn, checkOut)
+              ? '✓ En el carrito'
+              : '🛒 Guardar en el Carrito'
+            }
+          </button>
+        )}
+
+        {/* Botón de reserva */}
+        <button 
+          onClick={handleReservation}
+          disabled={!checkIn || !checkOut}
+          className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
+            checkIn && checkOut
+              ? 'bg-red-600 hover:bg-red-700 text-white'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          {checkIn && checkOut ? `Reservar - €${finalTotal}` : 'Selecciona fechas'}
+        </button>
+      </div>
 
       {/* Desglose de precios (solo si hay fechas seleccionadas) */}
       {checkIn && checkOut && total > 0 && (

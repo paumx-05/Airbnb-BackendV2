@@ -130,6 +130,27 @@ export const mockProperties: AirbnbProperty[] = [
       isSuperhost: true
     }
   },
+  {
+    id: 'madrid-5',
+    title: 'Apartamento de lujo en la castellana',
+    location: 'Castellana, Madrid',
+    city: 'Madrid',
+    pricePerNight: 185,
+    rating: 4.7,
+    reviewCount: 89,
+    imageUrl: 'https://images.unsplash.com/photo-1714939785137-5645727b3b23?w=400',
+    propertyType: 'entire',
+    amenities: ['WiFi', 'Cocina', 'Calefacción', 'TV', 'Jacuzzi'],
+    instantBook: false,
+    maxGuests: 4,
+    availableDates: generateAvailableDates(),
+    description: 'Apartamento perfecto para hecer negocios enMadrid, en el centro de negocios de la cuidad.',
+    host: {
+      name: 'Juan',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
+      isSuperhost: false
+    }
+  },
 
   // BARCELONA - Propiedades
   {
@@ -140,7 +161,7 @@ export const mockProperties: AirbnbProperty[] = [
     pricePerNight: 110,
     rating: 4.9,
     reviewCount: 234,
-    imageUrl: 'https://images.unsplash.com/photo-1520637836862-4d197d17c93a?w=400',
+    imageUrl: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
     propertyType: 'entire',
     amenities: ['WiFi', 'Vista al mar', 'Cocina', 'Aire acondicionado', 'Balcón'],
     instantBook: true,
@@ -161,7 +182,7 @@ export const mockProperties: AirbnbProperty[] = [
     pricePerNight: 75,
     rating: 4.5,
     reviewCount: 112,
-    imageUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400',
+    imageUrl: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
     propertyType: 'entire',
     amenities: ['WiFi', 'Cocina', 'Calefacción', 'TV', 'Chimenea'],
     instantBook: false,

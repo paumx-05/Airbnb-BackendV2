@@ -35,8 +35,7 @@ export const TEXT = {
     home: 'Inicio',
     about: 'Nosotros',
     experiences: 'Experiencias',
-    help: 'Ayuda',
-    airbnbYourHome: 'Airbnb your home'
+    help: 'Ayuda'
   },
   auth: {
     login: 'Iniciar Sesión',
@@ -47,7 +46,7 @@ export const TEXT = {
   },
   search: {
     placeholder: 'Where are you going?',
-    placeholderShort: 'Asia',
-    defaultDates: 'Jul 11 - 14 • 2 guest'
+    placeholderShort: 'Madrid',
+    defaultDates: 'Sep 11 - 14 • 2 guest'
   }
 } as const;

@@ -1,167 +1,175 @@
+'use client';
+
+import { Facebook, Twitter, Instagram, Youtube, Globe, Mail, Phone, MapPin } from 'lucide-react';
+import Link from 'next/link';
+
 /**
- * Footer Component - Site footer with links and information
- * TODO: Add newsletter subscription functionality
- * FIXME: Update social media links with actual URLs
+ * Footer Component - Información de contacto y enlaces de la empresa
+ * Features: Enlaces de navegación, contacto, redes sociales y información legal
+ * Architecture: Footer completo con múltiples secciones organizadas
  */
-
 export default function Footer() {
-  const currentYear = new Date().getFullYear();
-
   return (
-    <footer className="bg-primario-300 border-t border-primario-200/20">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        {/* Main Footer Content */}
+    <footer className="bg-gray-900 text-white">
+      {/* Main Footer Content */}
+      <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           
-          {/* Brand Section */}
+          {/* Company Info */}
           <div className="space-y-4">
-            <div className="flex items-center">
-              <svg 
-                width="82" 
-                height="26" 
-                fill="#71c4ef" 
-                viewBox="0 0 102 32"
-                className="hover:fill-acento-200 transition-colors duration-200"
-              >
-                <path d="M29.24 22.68c-.16-.39-.31-.8-.47-1.15l-.74-1.67-.03-.03c-2.2-4.8-4.55-9.68-7.04-14.48l-.1-.2c-.25-.47-.5-.99-.76-1.47-.32-.57-.63-1.18-1.14-1.76a5.3 5.3 0 00-8.2 0c-.47.58-.82 1.19-1.14 1.76-.25.52-.5 1-.76 1.47l-.1.2c-2.45 4.8-4.84 9.68-7.04 14.48l-.06.06c-.22.52-.48 1.06-.73 1.64-.16.35-.32.73-.48 1.15a6.8 6.8 0 007.2 9.23 8.38 8.38 0 003.18-1.1c1.3-.73 2.55-1.79 3.95-3.32 1.4 1.53 2.68 2.59 3.95 3.32A8.38 8.38 0 0022.75 32a6.79 6.79 0 006.75-5.83 5.94 5.94 0 00-.26-3.5zm-14.36 1.66c-1.72-2.2-2.84-4.22-3.22-5.95a5.2 5.2 0 01-.1-1.96c.07-.51.26-.96.52-1.34.6-.87 1.65-1.41 2.8-1.41a3.3 3.3 0 012.8 1.4c.26.4.45.84.51 1.35.1.58.06 1.25-.1 1.96-.38 1.7-1.5 3.74-3.21 5.95z"></path>
-              </svg>
-            </div>
-            <p className="text-primario-200 text-sm">
-              Discover extraordinary places to stay and unique experiences around the world. 
-              Your journey to luxury begins here.
+            <h3 className="text-lg font-semibold text-white">Airbnb Clone</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              Conectamos a viajeros con anfitriones únicos en todo el mundo. 
+              Descubre experiencias auténticas y alojamientos especiales.
             </p>
-            
-            {/* Social Links */}
             <div className="flex space-x-4">
-              {['facebook', 'twitter', 'instagram', 'linkedin'].map((social) => (
-                <a
-                  key={social}
-                  href={`#${social}`}
-                  className="text-primario-200 hover:text-acento-100 transition-colors duration-200"
-                  aria-label={`Follow us on ${social}`}
-                >
-                  <div className="w-8 h-8 bg-primario-200/10 hover:bg-acento-100/20 rounded-full flex items-center justify-center transition-all duration-200">
-                    <span className="text-xs font-semibold uppercase">
-                      {social.charAt(0)}
-                    </span>
-                  </div>
-                </a>
-              ))}
+              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Facebook className="h-5 w-5" />
+              </a>
+              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Twitter className="h-5 w-5" />
+              </a>
+              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Instagram className="h-5 w-5" />
+              </a>
+              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Youtube className="h-5 w-5" />
+              </a>
             </div>
           </div>
 
-          {/* Support */}
-          <div>
-            <h3 className="text-primario-100 font-semibold text-lg mb-4">Support</h3>
-            <ul className="space-y-3">
-              {[
-                'Help Center',
-                'Safety Information', 
-                'Cancellation Options',
-                'Report Issue',
-                'Contact Us'
-              ].map((item) => (
-                <li key={item}>
-                  <a 
-                    href="#" 
-                    className="text-primario-200 hover:text-acento-100 transition-colors duration-200 text-sm"
-                  >
-                    {item}
-                  </a>
-                </li>
-              ))}
+          {/* Quick Links */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-white">Enlaces Rápidos</h3>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <Link href="/" className="text-gray-400 hover:text-white transition-colors">
+                  Inicio
+                </Link>
+              </li>
+              <li>
+                <Link href="/about" className="text-gray-400 hover:text-white transition-colors">
+                  Acerca de Nosotros
+                </Link>
+              </li>
+              <li>
+                <Link href="/help" className="text-gray-400 hover:text-white transition-colors">
+                  Centro de Ayuda
+                </Link>
+              </li>
+              <li>
+                <Link href="/host" className="text-gray-400 hover:text-white transition-colors">
+                  Conviértete en Anfitrión
+                </Link>
+              </li>
+              <li>
+                <Link href="/experiences" className="text-gray-400 hover:text-white transition-colors">
+                  Experiencias
+                </Link>
+              </li>
             </ul>
           </div>
 
-          {/* Community */}
-          <div>
-            <h3 className="text-primario-100 font-semibold text-lg mb-4">Community</h3>
-            <ul className="space-y-3">
-              {[
-                'Airbnb.org: Disaster Relief',
-                'Support Afghan Refugees',
-                'Combating Discrimination',
-                'Community Guidelines',
-                'Host Resources'
-              ].map((item) => (
-                <li key={item}>
-                  <a 
-                    href="#" 
-                    className="text-primario-200 hover:text-acento-100 transition-colors duration-200 text-sm"
-                  >
-                    {item}
-                  </a>
-                </li>
-              ))}
-            </ul>
+          {/* Contact Info */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-white">Contacto</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center space-x-3">
+                <Mail className="h-4 w-4 text-gray-400" />
+                <span className="text-gray-400">contacto@airbnbclone.com</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Phone className="h-4 w-4 text-gray-400" />
+                <span className="text-gray-400">+34 900 123 456</span>
+              </div>
+              <div className="flex items-start space-x-3">
+                <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
+                <span className="text-gray-400">
+                  Calle Gran Vía, 123<br />
+                  28013 Madrid, España
+                </span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Globe className="h-4 w-4 text-gray-400" />
+                <span className="text-gray-400">www.airbnbclone.com</span>
+              </div>
+            </div>
           </div>
 
-          {/* Hosting */}
-          <div>
-            <h3 className="text-primario-100 font-semibold text-lg mb-4">Hosting</h3>
-            <ul className="space-y-3">
-              {[
-                'Try Hosting',
-                'AirCover for Hosts',
-                'Host Resources',
-                'Community Forum',
-                'Hosting Responsibly'
-              ].map((item) => (
-                <li key={item}>
-                  <a 
-                    href="#" 
-                    className="text-primario-200 hover:text-acento-100 transition-colors duration-200 text-sm"
-                  >
-                    {item}
-                  </a>
-                </li>
-              ))}
+          {/* Legal & Support */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-white">Legal y Soporte</h3>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <Link href="/privacy" className="text-gray-400 hover:text-white transition-colors">
+                  Política de Privacidad
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="text-gray-400 hover:text-white transition-colors">
+                  Términos de Servicio
+                </Link>
+              </li>
+              <li>
+                <Link href="/cookies" className="text-gray-400 hover:text-white transition-colors">
+                  Política de Cookies
+                </Link>
+              </li>
+              <li>
+                <Link href="/security" className="text-gray-400 hover:text-white transition-colors">
+                  Seguridad
+                </Link>
+              </li>
+              <li>
+                <Link href="/accessibility" className="text-gray-400 hover:text-white transition-colors">
+                  Accesibilidad
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
 
-        {/* Newsletter Section */}
-        <div className="mt-12 pt-8 border-t border-primario-200/20">
-          <div className="text-center max-w-md mx-auto">
-            <h3 className="text-primario-100 font-semibold text-lg mb-4">Stay Updated</h3>
-            <p className="text-primario-200 text-sm mb-4">
-              Get the latest luxury properties and exclusive offers delivered to your inbox.
+        {/* Newsletter Signup */}
+        <div className="border-t border-gray-800 mt-8 pt-8">
+          <div className="max-w-md mx-auto text-center">
+            <h3 className="text-lg font-semibold text-white mb-2">
+              Mantente al día con nuestras ofertas
+            </h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Recibe las mejores ofertas y novedades directamente en tu correo
             </p>
-            <div className="flex gap-2">
+            <div className="flex space-x-2">
               <input
                 type="email"
-                placeholder="Enter your email"
-                className="flex-1 px-4 py-2 bg-card border border-primario-200/30 rounded-full text-primario-100 placeholder-primario-200/60 focus:outline-none focus:ring-2 focus:ring-acento-100/50 focus:border-acento-100 transition-all duration-200"
+                placeholder="tu@email.com"
+                className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-red-500 transition-colors"
               />
-              <button className="bg-acento-100 hover:bg-acento-200 text-texto-100 px-6 py-2 rounded-full font-medium transition-all duration-200 whitespace-nowrap">
-                Subscribe
+              <button className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors">
+                Suscribirse
               </button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-primario-200/20">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="text-primario-200 text-sm">
-              © {currentYear} Airbnb Luxury. All rights reserved.
+      {/* Bottom Bar */}
+      <div className="border-t border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+            <div className="text-sm text-gray-400">
+              © 2024 Airbnb Clone. Todos los derechos reservados.
             </div>
-            
-            <div className="flex flex-wrap justify-center sm:justify-end gap-6 text-sm">
-              {[
-                'Privacy Policy',
-                'Terms of Service', 
-                'Cookie Policy',
-                'Accessibility'
-              ].map((item) => (
-                <a
-                  key={item}
-                  href="#"
-                  className="text-primario-200 hover:text-acento-100 transition-colors duration-200"
-                >
-                  {item}
-                </a>
-              ))}
+            <div className="flex items-center space-x-6 text-sm text-gray-400">
+              <span>Hecho con ❤️ en España</span>
+              <div className="flex items-center space-x-2">
+                <Globe className="h-4 w-4" />
+                <select className="bg-transparent text-gray-400 focus:outline-none">
+                  <option value="es">Español (ES)</option>
+                  <option value="en">English (US)</option>
+                  <option value="fr">Français</option>
+                  <option value="de">Deutsch</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>

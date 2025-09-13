@@ -27,18 +27,6 @@ export default function Header() {
           {/* Logo Section */}
           <div className="flex items-center space-x-4">
             <Logo />
-            
-            {/* Cart Icon with Counter - Solo visible si está autenticado */}
-            {isAuthenticated && (
-              <div className="relative">
-                <button className={COMMON_STYLES.button.icon}>
-                  <ShoppingCart className="h-5 w-5" />
-                  <span className={`absolute -top-1 -right-1 bg-[${COLORS.primary}] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium`}>
-                    0
-                  </span>
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Navigation Links - Desktop */}
@@ -49,10 +37,6 @@ export default function Header() {
 
           {/* Right side actions */}
           <div className="flex items-center space-x-4">
-            <button className={`${COLORS.text.primary} hover:${COLORS.text.secondary} text-sm font-medium ${COMMON_STYLES.transitions.colors} hidden md:block`}>
-              {TEXT.navigation.airbnbYourHome}
-            </button>
-            
             <button className={COMMON_STYLES.button.icon}>
               <Globe className="h-5 w-5" />
             </button>

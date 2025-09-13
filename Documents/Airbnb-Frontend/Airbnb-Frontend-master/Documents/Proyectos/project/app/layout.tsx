@@ -4,6 +4,7 @@ import { Jost } from 'next/font/google';
 import { AuthProvider } from '@/context/AuthContext';
 import { NotificationsProvider } from '@/context/NotificationsContext';
 import { SearchProvider } from '@/context/SearchContext';
+import { ReservationCartProvider } from '@/context/ReservationCartContext';
 
 const jost = Jost({ 
   subsets: ['latin'],
@@ -27,7 +28,9 @@ export default function RootLayout({
         <AuthProvider>
           <NotificationsProvider>
             <SearchProvider>
-              {children}
+              <ReservationCartProvider>
+                {children}
+              </ReservationCartProvider>
             </SearchProvider>
           </NotificationsProvider>
         </AuthProvider>

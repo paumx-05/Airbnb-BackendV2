@@ -68,13 +68,13 @@ const AirbnbSearchModule = () => {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+    <div className="w-full max-w-4xl mx-auto bg-white rounded-xl md:rounded-2xl shadow-lg border border-gray-200 overflow-hidden mx-2 md:mx-auto">
       {/* Contenedor principal del buscador */}
       <div className="flex flex-col md:flex-row">
         
         {/* Campo de Ubicación con Sugerencias */}
-        <div className="flex-1 border-r border-gray-200 p-4 hover:bg-gray-50 transition-colors relative">
-          <label className="block text-sm font-medium text-gray-900 mb-1">
+        <div className="flex-1 border-r-0 md:border-r border-gray-200 p-3 md:p-4 hover:bg-gray-50 transition-colors relative">
+          <label className="block text-xs md:text-sm font-medium text-gray-900 mb-1">
             ¿A dónde vas?
           </label>
           <input
@@ -84,7 +84,7 @@ const AirbnbSearchModule = () => {
             onFocus={handleLocationFocus}
             onBlur={handleLocationBlur}
             placeholder="Buscar destinos"
-            className="w-full text-lg border-none outline-none bg-transparent placeholder-gray-500"
+            className="w-full text-sm md:text-lg border-none outline-none bg-transparent placeholder-gray-500"
           />
           
           {/* Indicador de carga para sugerencias */}
@@ -97,9 +97,9 @@ const AirbnbSearchModule = () => {
           {/* Dropdown de Sugerencias */}
           {showSuggestions && suggestions.length > 0 && (
             <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 mt-1">
-              {suggestions.map((suggestion) => (
+              {suggestions.map((suggestion, index) => (
                 <button
-                  key={suggestion.id}
+                  key={index}
                   onClick={() => handleLocationSelect(suggestion.name)}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
                 >
@@ -112,39 +112,39 @@ const AirbnbSearchModule = () => {
         </div>
 
         {/* Campo de Fechas */}
-        <div className="flex-1 border-r border-gray-200 p-4 hover:bg-gray-50 transition-colors">
-          <label className="block text-sm font-medium text-gray-900 mb-1">
+        <div className="flex-1 border-r-0 md:border-r border-gray-200 p-3 md:p-4 hover:bg-gray-50 transition-colors">
+          <label className="block text-xs md:text-sm font-medium text-gray-900 mb-1">
             Check-in
           </label>
           <input
             type="date"
             value={searchData.checkIn}
             onChange={(e) => handleInputChange('checkIn', e.target.value)}
-            className="w-full text-lg border-none outline-none bg-transparent text-gray-700"
+            className="w-full text-sm md:text-lg border-none outline-none bg-transparent text-gray-700"
           />
         </div>
 
-        <div className="flex-1 border-r border-gray-200 p-4 hover:bg-gray-50 transition-colors">
-          <label className="block text-sm font-medium text-gray-900 mb-1">
+        <div className="flex-1 border-r-0 md:border-r border-gray-200 p-3 md:p-4 hover:bg-gray-50 transition-colors">
+          <label className="block text-xs md:text-sm font-medium text-gray-900 mb-1">
             Check-out
           </label>
           <input
             type="date"
             value={searchData.checkOut}
             onChange={(e) => handleInputChange('checkOut', e.target.value)}
-            className="w-full text-lg border-none outline-none bg-transparent text-gray-700"
+            className="w-full text-sm md:text-lg border-none outline-none bg-transparent text-gray-700"
           />
         </div>
 
         {/* Campo de Huéspedes */}
-        <div className="flex-1 border-r border-gray-200 p-4 hover:bg-gray-50 transition-colors">
-          <label className="block text-sm font-medium text-gray-900 mb-1">
+        <div className="flex-1 border-r-0 md:border-r border-gray-200 p-3 md:p-4 hover:bg-gray-50 transition-colors">
+          <label className="block text-xs md:text-sm font-medium text-gray-900 mb-1">
             ¿Cuántos huéspedes?
           </label>
           <select
             value={searchData.guests}
             onChange={(e) => handleInputChange('guests', Number(e.target.value))}
-            className="w-full text-lg border-none outline-none bg-transparent text-gray-700"
+            className="w-full text-sm md:text-lg border-none outline-none bg-transparent text-gray-700"
           >
             <option value={1}>1 huésped</option>
             <option value={2}>2 huéspedes</option>
@@ -160,11 +160,11 @@ const AirbnbSearchModule = () => {
         </div>
 
         {/* Botón de Búsqueda */}
-        <div className="p-4">
+        <div className="p-3 md:p-4">
           <button
             onClick={handleSearch}
             disabled={isSearching}
-            className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+            className="w-full bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
           >
             {isSearching ? (
               <>
