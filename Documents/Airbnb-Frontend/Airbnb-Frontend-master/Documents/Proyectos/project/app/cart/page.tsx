@@ -144,7 +144,7 @@ export default function CartPage() {
                     {/* Precio */}
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-gray-600">
-                        €{item.pricePerNight} por noche × {item.totalNights} noches
+                        €{Math.round(item.subtotal / item.totalNights)} por noche × {item.totalNights} noches
                       </div>
                       <div className="text-lg font-semibold text-gray-900">
                         €{item.total}
