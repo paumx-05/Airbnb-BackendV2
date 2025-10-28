@@ -159,3 +159,4 @@ El backend se inició correctamente y muestra:
 **Migrado por**: AI Assistant  
 **Resultado**: ✅ Exitoso
 
+
