@@ -84,6 +84,7 @@ export class UserRepositoryMongo implements IUserRepository {
       if (updates.email) updateData.email = updates.email.toLowerCase();
       if (updates.avatar !== undefined) updateData.avatar = updates.avatar;
       if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
+      if (updates.role !== undefined) updateData.role = updates.role;
 
       const user = await UserModel.findByIdAndUpdate(
         id,
@@ -247,7 +248,8 @@ export class UserRepositoryMongo implements IUserRepository {
       password: mongoUser.password,
       avatar: mongoUser.avatar,
       createdAt: mongoUser.createdAt.toISOString(),
-      isActive: mongoUser.isActive
+      isActive: mongoUser.isActive,
+      role: mongoUser.role || 'user'
     };
   }
 }

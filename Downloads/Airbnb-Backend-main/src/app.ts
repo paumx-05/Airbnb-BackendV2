@@ -91,8 +91,11 @@ app.get('/', (req, res) => {
           filters: 'GET /api/search/filters'
         },
         properties: {
+          getAll: 'GET /api/properties',
           get: 'GET /api/properties/:id',
-          popular: 'GET /api/properties/popular'
+          popular: 'GET /api/properties/popular',
+          update: 'PUT /api/properties/:id (admin only)',
+          delete: 'DELETE /api/properties/:id (admin only)'
         },
         stats: {
           system: 'GET /api/stats',

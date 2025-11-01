@@ -343,6 +343,56 @@ export const deleteUserById = async (req: Request, res: Response): Promise<void>
 };
 
 /**
+ * GET /api/users/me
+ * Obtener perfil del usuario autenticado
+ */
+export const getCurrentUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?.userId;
+    
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'Usuario no autenticado'
+      });
+      return;
+    }
+    
+    const user = await findUserById(userId);
+    
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+      return;
+    }
+    
+    // Remover contraseña de la respuesta
+    const safeUser = removePasswordFromUser(user);
+    
+    // Asegurar que el campo role siempre esté presente
+    const userWithRole = {
+      ...safeUser,
+      role: user.role || 'user'
+    };
+    
+    const response: UserResponse = {
+      success: true,
+      data: userWithRole
+    };
+    
+    res.json(response);
+  } catch (error) {
+    console.error('Error en getCurrentUser:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+};
+
+/**
  * GET /api/users/stats
  * Obtener estadísticas de usuarios
  */

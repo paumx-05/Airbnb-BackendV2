@@ -12,7 +12,8 @@ import {
   updateUserById,
   deleteUserById,
   getUserStatistics,
-  updateUserRole
+  updateUserRole,
+  getCurrentUser
 } from '../../controllers/users/userController';
 import { authenticateToken } from '../../middleware/auth/authMiddleware';
 import {
@@ -34,6 +35,12 @@ const router = Router();
  * Query params: page, limit, search
  */
 router.get('/', authenticateToken, validatePagination, getUsers);
+
+/**
+ * GET /api/users/me
+ * Obtener perfil del usuario autenticado
+ */
+router.get('/me', authenticateToken, getCurrentUser);
 
 /**
  * GET /api/users/stats

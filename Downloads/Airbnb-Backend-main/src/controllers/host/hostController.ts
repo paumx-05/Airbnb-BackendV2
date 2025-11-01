@@ -4,6 +4,7 @@ import { PropertyRepositoryFactory } from '../../models/factories/PropertyReposi
 import { ReservationRepositoryFactory } from '../../models/factories/ReservationRepositoryFactory';
 import { ReviewRepositoryFactory } from '../../models/factories/ReviewRepositoryFactory';
 import { findUserById } from '../../models';
+import { PropertyModel } from '../../models/schemas/PropertySchema';
 
 const hostRepo = HostRepositoryFactory.create();
 const propertyRepo = PropertyRepositoryFactory.create();
@@ -20,18 +21,7 @@ const validatePropertyAccess = async (
   propertyId: string,
   userId: string
 ): Promise<{ isValid: boolean; error?: string; statusCode?: number }> => {
-  // Get the property
-  const property = await hostRepo.getHostPropertyById(propertyId);
-  
-  if (!property) {
-    return {
-      isValid: false,
-      error: 'Propiedad no encontrada',
-      statusCode: 404
-    };
-  }
-
-  // Get user to check role
+  // Get user to check role first
   const user = await findUserById(userId);
   if (!user) {
     return {
@@ -43,6 +33,37 @@ const validatePropertyAccess = async (
 
   // Check if user is admin
   const isAdmin = user.role === 'admin';
+
+  // Buscar la propiedad en host_properties primero
+  let property = await hostRepo.getHostPropertyById(propertyId);
+  let propertyFound = !!property;
+
+  // Si no se encuentra en host_properties, buscar en properties
+  if (!property) {
+    try {
+      const propertyInProperties = await PropertyModel.findById(propertyId);
+      if (propertyInProperties) {
+        propertyFound = true;
+        // Crear objeto compatible para validación
+        const propertyDoc = propertyInProperties as any;
+        property = {
+          id: propertyDoc._id?.toString() || propertyId,
+          hostId: propertyDoc.host?.id || '',
+          title: propertyDoc.title || ''
+        } as any;
+      }
+    } catch (error) {
+      console.warn('Error buscando propiedad en colección properties:', error);
+    }
+  }
+
+  if (!propertyFound || !property) {
+    return {
+      isValid: false,
+      error: 'Propiedad no encontrada',
+      statusCode: 404
+    };
+  }
 
   // Check if user owns the property
   const isOwner = property.hostId === userId;
@@ -133,6 +154,13 @@ export const createHostPropertyController = async (req: Request, res: Response):
     }
 
     // Crear propiedad - asignar hostId desde token, ignorando cualquier hostId del body
+    console.log('📝 Creando propiedad con datos:', {
+      hostId: userId,
+      title,
+      propertyType,
+      location: typeof location === 'string' ? location : JSON.stringify(location)
+    });
+    
     const property = await hostRepo.createHostProperty({
       hostId: userId, // Siempre desde el token JWT, nunca desde el body
       title,
@@ -148,12 +176,20 @@ export const createHostPropertyController = async (req: Request, res: Response):
       isActive: true
     });
 
+    console.log('✅ Propiedad creada exitosamente:', property.id);
+
     res.status(201).json({
       success: true,
       data: property
     });
   } catch (error: any) {
-    console.error('Error creando propiedad:', error);
+    const userId = (req as any).user?.userId;
+    console.error('❌ Error creando propiedad:', {
+      message: error.message,
+      stack: error.stack,
+      userId: userId,
+      body: req.body
+    });
     res.status(500).json({
       success: false,
       error: { 
@@ -282,15 +318,20 @@ export const deleteHostPropertyController = async (req: Request, res: Response):
       return;
     }
 
+    console.log(`🗑️ Eliminando propiedad: ${id}`);
+    
     const success = await hostRepo.deleteHostProperty(id);
     
     if (!success) {
+      console.warn(`⚠️ No se pudo eliminar la propiedad: ${id}`);
       res.status(404).json({
         success: false,
-        error: { message: 'Error eliminando propiedad' }
+        error: { message: 'Error eliminando propiedad: propiedad no encontrada' }
       });
       return;
     }
+
+    console.log(`✅ Propiedad eliminada exitosamente: ${id}`);
 
     res.json({
       success: true,
@@ -298,10 +339,21 @@ export const deleteHostPropertyController = async (req: Request, res: Response):
         message: 'Propiedad eliminada exitosamente'
       }
     });
-  } catch (error) {
+  } catch (error: any) {
+    const userId = (req as any).user?.userId;
+    const { id } = req.params;
+    console.error('❌ Error eliminando propiedad:', {
+      message: error.message,
+      stack: error.stack,
+      propertyId: id,
+      userId: userId
+    });
     res.status(500).json({
       success: false,
-      error: { message: 'Error eliminando propiedad' }
+      error: { 
+        message: 'Error eliminando propiedad',
+        details: error.message || 'Error desconocido'
+      }
     });
   }
 };

@@ -33,6 +33,7 @@ export interface UpdateUserData {
   email?: string;
   avatar?: string;
   isActive?: boolean;
+  role?: 'user' | 'admin';
 }
 
 // =============================================================================
@@ -64,7 +65,8 @@ const userDB: UserDB = {
       password: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj7z7KZz4q7e', // bcrypt hash real
       avatar: 'https://via.placeholder.com/150',
       createdAt: new Date().toISOString(),
-      isActive: true
+      isActive: true,
+      role: 'user'
     }
   ],
   nextId: 2
@@ -192,7 +194,8 @@ export const createUser = async (userData: CreateUserData): Promise<User> => {
       password: hashedPassword,
       avatar: userData.avatar,
       createdAt: new Date().toISOString(),
-      isActive: true
+      isActive: true,
+      role: 'user'
     };
 
     userDB.users.push(newUser);
@@ -228,6 +231,7 @@ export const updateUser = async (id: string, updates: UpdateUserData): Promise<U
     if (updates.email) userDB.users[userIndex].email = updates.email.toLowerCase();
     if (updates.avatar !== undefined) userDB.users[userIndex].avatar = updates.avatar;
     if (updates.isActive !== undefined) userDB.users[userIndex].isActive = updates.isActive;
+    if (updates.role !== undefined) userDB.users[userIndex].role = updates.role;
     
     // Update profile fields
     if ((updates as any).bio !== undefined) (userDB.users[userIndex] as any).bio = (updates as any).bio;

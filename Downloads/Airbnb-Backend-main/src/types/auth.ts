@@ -32,6 +32,7 @@ export interface AuthResponse {
       name: string;
       avatar?: string;
       createdAt?: string;
+      role?: 'user' | 'admin';
     };
     token: string;
   };
