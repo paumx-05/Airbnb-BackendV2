@@ -78,7 +78,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
           id: newUser.id,
           email: newUser.email,
           name: newUser.name,
-          avatar: newUser.avatar
+          avatar: newUser.avatar,
+          role: newUser.role || 'user'
         },
         token
       }
@@ -166,7 +167,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
           id: user.id,
           email: user.email,
           name: user.name,
-          avatar: user.avatar
+          avatar: user.avatar,
+          role: user.role || 'user'
         },
         token
       }
@@ -230,6 +232,7 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
           email: user.email,
           name: user.name,
           avatar: user.avatar,
+          role: user.role || 'user',
           createdAt: user.createdAt
         }
       }
