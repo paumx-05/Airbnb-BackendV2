@@ -8,6 +8,12 @@ import { FavoriteModel, WishlistModel } from '../../schemas/FavoriteSchema';
 
 export class FavoriteRepositoryMongo implements IFavoriteRepository {
   async addFavorite(userId: string, propertyId: string): Promise<Favorite> {
+    // Verificar si ya existe (el índice único también lo previene, pero mejor verificar antes)
+    const existing = await FavoriteModel.findOne({ userId, propertyId });
+    if (existing) {
+      return this.mapToFavorite(existing);
+    }
+    
     const newFavorite = new FavoriteModel({ userId, propertyId });
     const savedFavorite = await newFavorite.save();
     return this.mapToFavorite(savedFavorite);

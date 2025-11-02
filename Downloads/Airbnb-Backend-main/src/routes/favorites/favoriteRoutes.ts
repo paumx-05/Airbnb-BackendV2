@@ -25,10 +25,20 @@ router.get('/wishlists/public', getPublicWishlistsController);
 router.use(authenticateToken);
 
 // Rutas de favoritos
+// IMPORTANTE: Las rutas más específicas deben ir ANTES de las dinámicas
+
+// POST - Agregar favorito (mantener ambas rutas para compatibilidad)
+router.post('/add', addToFavoritesController); // Nueva ruta según requisitos del frontend (debe ir primero)
 router.post('/', addToFavoritesController);
+
+// DELETE - Eliminar favorito (mantener ambas rutas para compatibilidad)
+router.delete('/remove/:propertyId', removeFromFavoritesController); // Nueva ruta según requisitos del frontend (debe ir primero)
 router.delete('/:propertyId', removeFromFavoritesController);
-router.get('/', getUserFavoritesController);
-router.get('/check/:propertyId', checkFavoriteController);
+
+// GET - Obtener favoritos y verificar estado
+router.get('/check/:propertyId', checkFavoriteController); // Ruta específica primero
+router.get('/:propertyId/status', checkFavoriteController); // Ruta alternativa según requisitos (debe ir antes de /)
+router.get('/', getUserFavoritesController); // Ruta general al final
 
 // Rutas de wishlists
 router.post('/wishlists', createWishlistController);

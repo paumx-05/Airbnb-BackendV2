@@ -1,15 +1,21 @@
 import { Request, Response } from 'express';
+import { AuthenticatedRequest } from '../../types/auth';
 import { FavoriteRepositoryFactory } from '../../models/factories/FavoriteRepositoryFactory';
 
 const favoriteRepo = FavoriteRepositoryFactory.create();
 
-// POST /api/favorites - Agregar propiedad a favoritos
-export const addToFavoritesController = async (req: Request, res: Response): Promise<void> => {
+// POST /api/favorites o POST /api/favorites/add - Agregar propiedad a favoritos
+export const addToFavoritesController = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
+    const userEmail = req.user?.email;
     const { propertyId } = req.body;
 
+    // Logs para debugging
+    console.log('❤️ [FAVORITES] Agregando favorito:', { userId, userEmail, propertyId });
+
     if (!userId) {
+      console.error('❌ [FAVORITES] No se recibió userId del token');
       res.status(401).json({
         success: false,
         error: { message: 'Usuario no autenticado' }
@@ -18,6 +24,7 @@ export const addToFavoritesController = async (req: Request, res: Response): Pro
     }
 
     if (!propertyId) {
+      console.error('❌ [FAVORITES] propertyId faltante');
       res.status(400).json({
         success: false,
         error: { message: 'propertyId es requerido' }
@@ -25,16 +32,42 @@ export const addToFavoritesController = async (req: Request, res: Response): Pro
       return;
     }
 
+    // Verificar si ya existe (hacer idempotente)
+    const alreadyFavorite = await favoriteRepo.isFavorite(userId, propertyId);
+    if (alreadyFavorite) {
+      console.log('⚠️ [FAVORITES] Favorito ya existe, devolviendo existente');
+      const favorites = await favoriteRepo.getUserFavorites(userId);
+      const existing = favorites.find(f => f.propertyId === propertyId);
+      
+      if (existing) {
+        res.status(200).json({
+          success: true,
+          message: 'Favorito agregado exitosamente',
+          data: {
+            favorite: existing
+          }
+        });
+        return;
+      }
+    }
+
     const favorite = await favoriteRepo.addFavorite(userId, propertyId);
+
+    console.log('✅ [FAVORITES] Favorito agregado exitosamente:', {
+      favoriteId: favorite.id,
+      userId: favorite.userId,
+      propertyId: favorite.propertyId
+    });
 
     res.status(201).json({
       success: true,
+      message: 'Favorito agregado exitosamente',
       data: {
-        favorite,
-        message: 'Propiedad agregada a favoritos'
+        favorite
       }
     });
   } catch (error) {
+    console.error('❌ [FAVORITES] Error agregando favorito:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Error agregando a favoritos' }
@@ -42,13 +75,17 @@ export const addToFavoritesController = async (req: Request, res: Response): Pro
   }
 };
 
-// DELETE /api/favorites/:propertyId - Quitar propiedad de favoritos
-export const removeFromFavoritesController = async (req: Request, res: Response): Promise<void> => {
+// DELETE /api/favorites/:propertyId o DELETE /api/favorites/remove/:propertyId - Quitar propiedad de favoritos
+export const removeFromFavoritesController = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
+    const userEmail = req.user?.email;
     const { propertyId } = req.params;
 
+    console.log('❤️ [FAVORITES] Eliminando favorito:', { userId, userEmail, propertyId });
+
     if (!userId) {
+      console.error('❌ [FAVORITES] No se recibió userId del token');
       res.status(401).json({
         success: false,
         error: { message: 'Usuario no autenticado' }
@@ -59,20 +96,23 @@ export const removeFromFavoritesController = async (req: Request, res: Response)
     const success = await favoriteRepo.removeFavorite(userId, propertyId);
     
     if (!success) {
-      res.status(404).json({
-        success: false,
-        error: { message: 'Propiedad no encontrada en favoritos' }
+      // Idempotente: si no existe, devolver éxito
+      console.log('⚠️ [FAVORITES] Favorito no encontrado, pero devolviendo éxito (idempotente)');
+      res.json({
+        success: true,
+        message: 'Favorito eliminado exitosamente'
       });
       return;
     }
 
+    console.log('✅ [FAVORITES] Favorito eliminado exitosamente:', { userId, propertyId });
+
     res.json({
       success: true,
-      data: {
-        message: 'Propiedad removida de favoritos'
-      }
+      message: 'Favorito eliminado exitosamente'
     });
   } catch (error) {
+    console.error('❌ [FAVORITES] Error eliminando favorito:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Error removiendo de favoritos' }
@@ -81,11 +121,16 @@ export const removeFromFavoritesController = async (req: Request, res: Response)
 };
 
 // GET /api/favorites - Obtener favoritos del usuario
-export const getUserFavoritesController = async (req: Request, res: Response): Promise<void> => {
+export const getUserFavoritesController = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
+    const userEmail = req.user?.email;
+
+    // Logs para debugging
+    console.log('❤️ [FAVORITES] Obteniendo favoritos para usuario:', { userId, userEmail });
 
     if (!userId) {
+      console.error('❌ [FAVORITES] No se recibió userId del token');
       res.status(401).json({
         success: false,
         error: { message: 'Usuario no autenticado' }
@@ -95,14 +140,22 @@ export const getUserFavoritesController = async (req: Request, res: Response): P
 
     const favorites = await favoriteRepo.getUserFavorites(userId);
 
+    console.log('✅ [FAVORITES] Favoritos obtenidos:', {
+      userId,
+      total: favorites.length,
+      propertyIds: favorites.map(f => f.propertyId)
+    });
+
     res.json({
       success: true,
+      message: 'Favoritos obtenidos exitosamente',
       data: {
         favorites,
         total: favorites.length
       }
     });
   } catch (error) {
+    console.error('❌ [FAVORITES] Error obteniendo favoritos:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Error obteniendo favoritos' }
@@ -110,10 +163,10 @@ export const getUserFavoritesController = async (req: Request, res: Response): P
   }
 };
 
-// GET /api/favorites/check/:propertyId - Verificar si una propiedad está en favoritos
-export const checkFavoriteController = async (req: Request, res: Response): Promise<void> => {
+// GET /api/favorites/check/:propertyId o GET /api/favorites/:propertyId/status - Verificar si una propiedad está en favoritos
+export const checkFavoriteController = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     const { propertyId } = req.params;
 
     if (!userId) {
@@ -134,6 +187,7 @@ export const checkFavoriteController = async (req: Request, res: Response): Prom
       }
     });
   } catch (error) {
+    console.error('❌ [FAVORITES] Error verificando favorito:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Error verificando favorito' }
