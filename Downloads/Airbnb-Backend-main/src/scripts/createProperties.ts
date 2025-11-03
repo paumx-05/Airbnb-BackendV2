@@ -31,7 +31,9 @@ const properties = [
     images: [
       'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
       'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
-      'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800'
+      'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800',
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800',
+      'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800'
     ],
     rating: 4.8,
     reviewCount: 127,
@@ -55,7 +57,9 @@ const properties = [
     images: [
       'https://images.unsplash.com/photo-1556912172-45b7abe8b7e8?w=800',
       'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=800',
-      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800'
+      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800',
+      'https://images.unsplash.com/photo-1505843513577-22bb7d21e455?w=800',
+      'https://images.unsplash.com/photo-1560448075-cbc16bb4af80?w=800'
     ],
     rating: 4.6,
     reviewCount: 89,
@@ -79,7 +83,9 @@ const properties = [
     images: [
       'https://images.unsplash.com/photo-1560448075-cbc16bb4af80?w=800',
       'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800',
-      'https://images.unsplash.com/photo-1567443023826-6029e859fff5?w=800'
+      'https://images.unsplash.com/photo-1567443023826-6029e859fff5?w=800',
+      'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=800',
+      'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800'
     ],
     rating: 4.9,
     reviewCount: 156,
@@ -103,7 +109,9 @@ const properties = [
     images: [
       'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800',
       'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
-      'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800'
+      'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800',
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800',
+      'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800'
     ],
     rating: 4.5,
     reviewCount: 73,
@@ -127,7 +135,9 @@ const properties = [
     images: [
       'https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=800',
       'https://images.unsplash.com/photo-1574362848149-11496d93a7c7?w=800',
-      'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800'
+      'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800',
+      'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800',
+      'https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=800'
     ],
     rating: 4.9,
     reviewCount: 94,
@@ -151,7 +161,9 @@ const properties = [
     images: [
       'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800',
       'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800',
-      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800'
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800',
+      'https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=800',
+      'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800'
     ],
     rating: 4.7,
     reviewCount: 112,
@@ -175,7 +187,9 @@ const properties = [
     images: [
       'https://images.unsplash.com/photo-1556912172-45b7abe8b7e8?w=800',
       'https://images.unsplash.com/photo-1560448075-cbc16bb4af80?w=800',
-      'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800'
+      'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800',
+      'https://images.unsplash.com/photo-1505843513577-22bb7d21e455?w=800',
+      'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800'
     ],
     rating: 4.8,
     reviewCount: 145,
@@ -199,7 +213,9 @@ const properties = [
     images: [
       'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
       'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
-      'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=800'
+      'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=800',
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800',
+      'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800'
     ],
     rating: 4.6,
     reviewCount: 68,
@@ -223,7 +239,9 @@ const properties = [
     images: [
       'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800',
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800',
-      'https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=800'
+      'https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=800',
+      'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800',
+      'https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=800'
     ],
     rating: 4.9,
     reviewCount: 203,
@@ -247,7 +265,9 @@ const properties = [
     images: [
       'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800',
       'https://images.unsplash.com/photo-1556912172-45b7abe8b7e8?w=800',
-      'https://images.unsplash.com/photo-1560448075-cbc16bb4af80?w=800'
+      'https://images.unsplash.com/photo-1560448075-cbc16bb4af80?w=800',
+      'https://images.unsplash.com/photo-1505843513577-22bb7d21e455?w=800',
+      'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=800'
     ],
     rating: 4.7,
     reviewCount: 138,

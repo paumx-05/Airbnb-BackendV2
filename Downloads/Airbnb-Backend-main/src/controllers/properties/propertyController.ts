@@ -134,7 +134,41 @@ export const getProperty = async (req: Request, res: Response): Promise<void> =>
       return;
     }
     
-    const property = await getPropertyById(id);
+    let property = await getPropertyById(id);
+    
+    // Si no se encuentra en properties, buscar en host_properties
+    if (!property) {
+      const hostProperty = await HostPropertyModel.findById(id);
+      if (hostProperty) {
+        // Convertir HostProperty a formato Property
+        const locationObj = typeof hostProperty.location === 'string' 
+          ? { address: hostProperty.location, city: hostProperty.location, country: '', coordinates: { lat: 0, lng: 0 } }
+          : hostProperty.location;
+        
+        const hostPropertyId = (hostProperty as any)._id?.toString() || id;
+        
+        property = {
+          id: hostPropertyId,
+          title: hostProperty.title,
+          description: hostProperty.description,
+          price: hostProperty.pricePerNight || 0,
+          pricePerNight: hostProperty.pricePerNight || 0,
+          location: locationObj,
+          propertyType: hostProperty.propertyType,
+          maxGuests: hostProperty.maxGuests,
+          bedrooms: hostProperty.bedrooms || 0,
+          bathrooms: hostProperty.bathrooms || 0,
+          amenities: hostProperty.amenities || [],
+          images: hostProperty.images || [],
+          hostId: hostProperty.hostId,
+          isActive: hostProperty.isActive !== false,
+          rating: 0,
+          instantBook: false,
+          createdAt: hostProperty.createdAt?.toISOString ? hostProperty.createdAt.toISOString() : String(hostProperty.createdAt || ''),
+          updatedAt: hostProperty.updatedAt?.toISOString ? hostProperty.updatedAt.toISOString() : String(hostProperty.updatedAt || '')
+        };
+      }
+    }
     
     if (!property) {
       res.status(404).json({
@@ -144,9 +178,22 @@ export const getProperty = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    // Asegurar que hostId esté presente en la respuesta
+    // El frontend busca hostId o userId (prioridad: hostId)
+    const propertyWithHost = property as any;
+    const responseData: any = {
+      ...property,
+      hostId: property.hostId || propertyWithHost.host?.id || propertyWithHost.userId || null
+    };
+
+    // Si hay objeto host pero no hostId directo, asegurar que esté
+    if (propertyWithHost.host && !responseData.hostId) {
+      responseData.hostId = propertyWithHost.host.id;
+    }
+
     res.json({
       success: true,
-      data: property
+      data: responseData
     });
   } catch (error) {
     res.status(500).json({

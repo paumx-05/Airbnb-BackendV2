@@ -40,8 +40,9 @@ const ReviewSchema = new Schema<IReview>({
   },
   comment: {
     type: String,
-    required: true,
-    maxlength: 1000
+    required: false,
+    maxlength: 1000,
+    default: ''
   },
   categories: {
     cleanliness: { type: Number, required: false, min: 1, max: 5 },
@@ -63,5 +64,7 @@ const ReviewSchema = new Schema<IReview>({
 // Indexes
 ReviewSchema.index({ propertyId: 1, rating: -1 });
 ReviewSchema.index({ userId: 1 });
+// Índice compuesto para prevenir reviews duplicadas (usuario + propiedad)
+ReviewSchema.index({ userId: 1, propertyId: 1 }, { unique: false });
 
 export const ReviewModel = mongoose.model<IReview>('Review', ReviewSchema);

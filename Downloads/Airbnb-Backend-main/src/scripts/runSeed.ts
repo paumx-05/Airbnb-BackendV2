@@ -135,7 +135,13 @@ async function run() {
       bedrooms: 1,
       bathrooms: 1,
       amenities: ['WiFi', 'Calefacción', 'Cafetera'],
-      images: ['https://picsum.photos/800/600?random=10'],
+      images: [
+        'https://picsum.photos/800/600?random=10',
+        'https://picsum.photos/800/600?random=11',
+        'https://picsum.photos/800/600?random=12',
+        'https://picsum.photos/800/600?random=13',
+        'https://picsum.photos/800/600?random=14'
+      ],
       rules: ['No fumar', 'No fiestas'],
       status: 'active'
     });
@@ -156,7 +162,13 @@ async function run() {
       bedrooms: 2,
       bathrooms: 1,
       amenities: ['WiFi', 'Cocina', 'TV'],
-      images: ['https://picsum.photos/800/600?random=20'],
+      images: [
+        'https://picsum.photos/800/600?random=20',
+        'https://picsum.photos/800/600?random=21',
+        'https://picsum.photos/800/600?random=22',
+        'https://picsum.photos/800/600?random=23',
+        'https://picsum.photos/800/600?random=24'
+      ],
       host: {
         id: adminId.toHexString(),
         name: 'Admin',
