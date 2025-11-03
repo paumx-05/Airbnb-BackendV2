@@ -4,7 +4,7 @@ export interface Review {
   userId: string;
   reservationId: string;
   rating: number; // 1-5
-  comment: string;
+  comment?: string;
   categories: {
     cleanliness: number;
     communication: number;
@@ -14,6 +14,7 @@ export interface Review {
     value: number;
   };
   createdAt: string;
+  updatedAt?: string;
   isVerified: boolean;
 }
 
