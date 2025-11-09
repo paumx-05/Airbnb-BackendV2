@@ -143,6 +143,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
+    // Limpiar flag de error 429 al intentar iniciar sesión
+    localStorage.removeItem('auth_429_error');
+    
     console.log('🔍 [AuthContext] Iniciando login para:', email);
     dispatch({ type: 'AUTH_START' });
     try {
@@ -284,6 +287,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshToken = async (): Promise<void> => {
     try {
+      // ⚠️ PROTECCIÓN: Verificar si ya hubo un error 429
+      const has429Error = localStorage.getItem('auth_429_error');
+      if (has429Error === 'true') {
+        console.warn('⚠️ [AuthContext] Error 429 detectado anteriormente, no intentando renovar token');
+        dispatch({ type: 'AUTH_LOGOUT' });
+        return;
+      }
+      
       console.log('🔄 [AuthContext] Renovando token...');
       const response = await authService.refreshToken();
       
@@ -293,10 +304,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // No necesitamos actualizar el estado del usuario
       } else {
         console.log('❌ [AuthContext] Error renovando token:', response.message);
+        // Si el error es 429, marcar para no intentar más
+        if (response.message?.includes('429') || response.message?.includes('Too Many Requests')) {
+          localStorage.setItem('auth_429_error', 'true');
+        }
         // Si no se puede renovar, hacer logout
         dispatch({ type: 'AUTH_LOGOUT' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('💥 [AuthContext] Error renovando token:', error);
       dispatch({ type: 'AUTH_LOGOUT' });
     }

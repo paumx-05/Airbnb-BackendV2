@@ -9,14 +9,14 @@ import { Minus, Plus, MapPin, Navigation } from 'lucide-react';
  */
 
 const enhancedMapProperties = [
-  { id: '1', price: '$89', x: '18%', y: '28%', type: 'apartment' },
-  { id: '2', price: '$156', x: '32%', y: '42%', type: 'house' },
-  { id: '3', price: '$203', x: '45%', y: '35%', type: 'villa' },
-  { id: '4', price: '$127', x: '58%', y: '52%', type: 'apartment' },
-  { id: '5', price: '$178', x: '72%', y: '38%', type: 'house' },
-  { id: '6', price: '$95', x: '25%', y: '65%', type: 'apartment' },
-  { id: '7', price: '$245', x: '65%', y: '25%', type: 'villa' },
-  { id: '8', price: '$134', x: '80%', y: '58%', type: 'house' },
+  { id: '1', price: '€89', x: '18%', y: '28%', type: 'apartment' },
+  { id: '2', price: '€156', x: '32%', y: '42%', type: 'house' },
+  { id: '3', price: '€203', x: '45%', y: '35%', type: 'villa' },
+  { id: '4', price: '€127', x: '58%', y: '52%', type: 'apartment' },
+  { id: '5', price: '€178', x: '72%', y: '38%', type: 'house' },
+  { id: '6', price: '€95', x: '25%', y: '65%', type: 'apartment' },
+  { id: '7', price: '€245', x: '65%', y: '25%', type: 'villa' },
+  { id: '8', price: '€134', x: '80%', y: '58%', type: 'house' },
 ];
 
 export default function EnhancedMapView() {

@@ -97,11 +97,32 @@ export class ApiClient {
         console.log('❌ [ApiClient] Error response (status:', response.status, '):', errorData);
         
         // Si el error es 401 o 403 (token expirado), intentar renovar
+        // ⚠️ PROTECCIÓN: No renovar si recibimos 429 (Too Many Requests) o si ya intentamos renovar
         if ((response.status === 401 || response.status === 403) && 
+            response.status !== 429 && // NO renovar si recibimos 429
             (errorData.error?.message === 'Token inválido o expirado' || 
              errorData.message === 'Token inválido o expirado' ||
              errorData.message === 'Unauthorized')) {
+          
+          // Verificar si ya estamos en proceso de renovación (evitar bucles infinitos)
+          const refreshInProgress = (this as any)._isRefreshing || false;
+          const refreshAttempts = (this as any)._refreshAttempts || 0;
+          const MAX_REFRESH_ATTEMPTS = 1; // Solo permitir 1 intento
+          
+          if (refreshInProgress || refreshAttempts >= MAX_REFRESH_ATTEMPTS) {
+            console.warn('⚠️ [ApiClient] Renovación ya en progreso o máximo de intentos alcanzado, limpiando sesión');
+            this.removeAuthToken();
+            localStorage.removeItem('airbnb_auth_token');
+            localStorage.removeItem('user');
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
+            }
+            throw new Error('Token expirado y no se pudo renovar');
+          }
+          
           console.log('🔄 [ApiClient] Token expirado, intentando renovar...');
+          (this as any)._isRefreshing = true;
+          (this as any)._refreshAttempts = refreshAttempts + 1;
           
           try {
             const refreshResponse = await fetch(`${this.baseURL}/api/auth/refresh`, {
@@ -112,6 +133,24 @@ export class ApiClient {
               },
               body: JSON.stringify({ token })
             });
+            
+            // Si recibimos 429, no intentar más renovaciones
+            if (refreshResponse.status === 429) {
+              console.error('❌ [ApiClient] Error 429 (Too Many Requests) al renovar token - limpiando sesión');
+              (this as any)._isRefreshing = false;
+              (this as any)._refreshAttempts = MAX_REFRESH_ATTEMPTS + 1; // Marcar como máximo alcanzado
+              
+              // Marcar error 429 en localStorage para que otros componentes lo detecten
+              localStorage.setItem('auth_429_error', 'true');
+              
+              this.removeAuthToken();
+              localStorage.removeItem('airbnb_auth_token');
+              localStorage.removeItem('user');
+              if (typeof window !== 'undefined') {
+                window.location.href = '/login';
+              }
+              throw new Error('Error 429: Too Many Requests');
+            }
             
             if (refreshResponse.ok) {
               const refreshData = await refreshResponse.json();
@@ -124,7 +163,11 @@ export class ApiClient {
                 this.setAuthToken(newToken);
                 localStorage.setItem('airbnb_auth_token', newToken);
                 
-                // Reintentar la petición original con el nuevo token
+                // Resetear contadores
+                (this as any)._isRefreshing = false;
+                (this as any)._refreshAttempts = 0;
+                
+                // Reintentar la petición original con el nuevo token (solo una vez)
                 const retryResponse = await fetch(url, {
                   ...options,
                   headers: {
@@ -142,6 +185,7 @@ export class ApiClient {
             }
           } catch (refreshError) {
             console.error('💥 [ApiClient] Error renovando token:', refreshError);
+            (this as any)._isRefreshing = false;
             
             // Si no se puede renovar, limpiar tokens y redirigir al login
             this.removeAuthToken();

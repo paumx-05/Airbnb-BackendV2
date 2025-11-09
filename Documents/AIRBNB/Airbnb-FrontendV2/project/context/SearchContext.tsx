@@ -89,7 +89,19 @@ export const SearchProvider = ({ children }: { children: ReactNode }) => {
     const loadProperties = async () => {
       try {
         setIsLoading(true);
-        const properties = await propertyService.getAllProperties();
+        console.log('🔍 [SearchContext] Iniciando carga de propiedades...');
+        
+        // Agregar timeout para evitar que bloquee el inicio del servidor
+        const timeoutPromise = new Promise<Property[]>((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout cargando propiedades')), 10000); // 10 segundos
+        });
+        
+        const properties = await Promise.race([
+          propertyService.getAllProperties(),
+          timeoutPromise
+        ]);
+        
+        console.log('✅ [SearchContext] Propiedades recibidas del servicio:', properties.length);
         
         // 🔧 FIX: Doble verificación - getAllProperties ya elimina duplicados, pero verificamos por seguridad
         const uniqueProperties = properties.filter((property, index, self) => {
@@ -116,14 +128,17 @@ export const SearchProvider = ({ children }: { children: ReactNode }) => {
           console.error(`❌ [SearchContext] ERROR: IDs duplicados encontrados después de deduplicación:`, duplicateIds);
         }
       } catch (error) {
-        console.warn('⚠️ [SearchContext] No se pudieron cargar propiedades (endpoint no disponible):', error);
+        console.warn('⚠️ [SearchContext] No se pudieron cargar propiedades (endpoint no disponible o timeout):', error);
         // No es un error crítico, solo establecer array vacío
+        // El servidor puede seguir funcionando sin propiedades cargadas
         setAllProperties([]);
       } finally {
         setIsLoading(false);
+        console.log('✅ [SearchContext] Carga de propiedades finalizada');
       }
     };
 
+    // Cargar propiedades de forma asíncrona sin bloquear
     loadProperties();
   }, []);
 

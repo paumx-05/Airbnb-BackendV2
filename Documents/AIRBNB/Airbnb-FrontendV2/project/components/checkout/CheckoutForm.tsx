@@ -1,28 +1,121 @@
 'use client';
 
-import { useState } from 'react';
-import { User, Mail, Phone, CreditCard, Calendar, MessageSquare } from 'lucide-react';
-import { type GuestInfo } from '@/lib/reservation-mock';
+import { useState, useEffect } from 'react';
+import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements
+} from '@stripe/react-stripe-js';
+import { User, Mail, Phone, CreditCard, MessageSquare, AlertCircle } from 'lucide-react';
+import { type GuestInfo } from '@/lib/types/reservation';
+import { paymentService } from '@/lib/api/payments';
+
+// Inicializar Stripe con la clave pública
+// La clave se puede configurar en .env.local como NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+// Solo inicializar en el cliente para evitar problemas con SSR
+let stripePromise: Promise<any> | null = null;
+
+const getStripePromise = () => {
+  if (typeof window === 'undefined') return null;
+  
+  if (!stripePromise) {
+    const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 
+      'pk_test_51SRF80BKr0sSqmIZYTdA95PzpoGwrJ9SRepCx70oDiZixvSxRGbGos40M2BQCCeuLY0vYnCYmkjavPYhU3wh0VsG00ehrDIg4J';
+    
+    stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
+  }
+  
+  return stripePromise;
+};
 
 interface CheckoutFormProps {
-  onSubmit: (guestInfo: GuestInfo) => void;
+  onSubmit: (guestInfo: GuestInfo, reservationId?: string) => void;
+  reservationData?: {
+    propertyId: string;
+    checkIn: string;
+    checkOut: string;
+    guests: number;
+    total: number;
+  };
 }
 
-export default function CheckoutForm({ onSubmit }: CheckoutFormProps) {
-  const [formData, setFormData] = useState<GuestInfo>({
+// Componente interno que usa los hooks de Stripe
+function PaymentForm({ onSubmit, reservationData }: CheckoutFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  
+  const [formData, setFormData] = useState<Omit<GuestInfo, 'cardNumber' | 'expiryDate' | 'cvv'>>({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
     paymentMethod: 'credit',
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
     specialRequests: ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+
+  // Crear payment intent cuando el componente se monta
+  useEffect(() => {
+    if (reservationData && stripe) {
+      createPaymentIntent();
+    }
+  }, [reservationData, stripe]);
+
+  // Función para crear el payment intent
+  const createPaymentIntent = async () => {
+    if (!reservationData) return;
+
+    try {
+      setIsSubmitting(true);
+      setPaymentError(null);
+
+      const response = await paymentService.createPaymentIntent({
+        propertyId: reservationData.propertyId,
+        checkIn: reservationData.checkIn,
+        checkOut: reservationData.checkOut,
+        guests: reservationData.guests
+      });
+
+      if (response.success && response.data) {
+        const { clientSecret, paymentIntentId } = response.data;
+        
+        // Validar que el clientSecret tenga el formato correcto de Stripe
+        // Formato esperado: pi_xxxxx_secret_xxxxx
+        if (!clientSecret || !clientSecret.includes('_secret_')) {
+          console.error('❌ [PaymentForm] ClientSecret inválido:', clientSecret);
+          setPaymentError('Error: El servidor devolvió un client secret inválido. Por favor, contacta al soporte.');
+          return;
+        }
+        
+        // Validar que no sea un mock
+        if (clientSecret.includes('_mock_') || clientSecret.startsWith('pi_mock')) {
+          console.error('❌ [PaymentForm] ClientSecret es un mock:', clientSecret);
+          setPaymentError('Error: El servidor está devolviendo datos de prueba. Verifica la configuración del backend.');
+          return;
+        }
+        
+        console.log('✅ [PaymentForm] Payment intent creado:', paymentIntentId);
+        console.log('✅ [PaymentForm] ClientSecret recibido (primeros 20 chars):', clientSecret.substring(0, 20) + '...');
+        
+        setClientSecret(clientSecret);
+        setPaymentIntentId(paymentIntentId);
+      } else {
+        setPaymentError(response.message || 'Error creando el payment intent');
+      }
+    } catch (error: any) {
+      console.error('Error creando payment intent:', error);
+      setPaymentError(error.message || 'Error de conexión con el servidor');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Validaciones básicas
   const validateField = (name: string, value: string): string => {
@@ -31,15 +124,9 @@ export default function CheckoutForm({ onSubmit }: CheckoutFormProps) {
       case 'lastName':
         return value.length < 2 ? 'Debe tener al menos 2 caracteres' : '';
       case 'email':
-        return !value.includes('@') ? 'Email válido requerido' : '';
+        return !value.includes('@') || !value.includes('.') ? 'Email válido requerido' : '';
       case 'phone':
         return value.length < 10 ? 'Número de teléfono válido requerido' : '';
-      case 'cardNumber':
-        return value.replace(/\s/g, '').length < 16 ? 'Número de tarjeta válido requerido' : '';
-      case 'expiryDate':
-        return !value.match(/^(0[1-9]|1[0-2])\/\d{2}$/) ? 'Formato MM/AA requerido' : '';
-      case 'cvv':
-        return value.length < 3 ? 'CVV válido requerido' : '';
       default:
         return '';
     }
@@ -47,28 +134,24 @@ export default function CheckoutForm({ onSubmit }: CheckoutFormProps) {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
-    // Formatear número de tarjeta con espacios
-    let formattedValue = value;
-    if (name === 'cardNumber') {
-      formattedValue = value.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim();
-    }
-    
-    // Formatear fecha de expiración
-    if (name === 'expiryDate') {
-      formattedValue = value.replace(/\D/g, '').replace(/(.{2})/, '$1/');
-    }
-
-    setFormData(prev => ({ ...prev, [name]: formattedValue }));
+    setFormData(prev => ({ ...prev, [name]: value }));
     
     // Validar campo en tiempo real
-    const error = validateField(name, formattedValue);
+    const error = validateField(name, value);
     setErrors(prev => ({ ...prev, [name]: error }));
+    setPaymentError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!stripe || !elements || !clientSecret || !paymentIntentId) {
+      setPaymentError('Stripe no está inicializado. Por favor, recarga la página.');
+      return;
+    }
+
     setIsSubmitting(true);
+    setPaymentError(null);
 
     // Validar todos los campos
     const newErrors: Record<string, string> = {};
@@ -84,11 +167,100 @@ export default function CheckoutForm({ onSubmit }: CheckoutFormProps) {
       return;
     }
 
-    // Simular delay de procesamiento
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    onSubmit(formData);
-    setIsSubmitting(false);
+    // Obtener el elemento de tarjeta
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      setPaymentError('No se pudo encontrar el elemento de tarjeta');
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      // Validar clientSecret antes de usarlo
+      if (!clientSecret || !clientSecret.includes('_secret_')) {
+        setPaymentError('Error: Client secret inválido. Por favor, recarga la página.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      console.log('🔍 [PaymentForm] Confirmando pago con clientSecret (primeros 20 chars):', clientSecret.substring(0, 20) + '...');
+      
+      // Confirmar el pago con Stripe
+      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: `${formData.firstName} ${formData.lastName}`,
+            email: formData.email,
+            phone: formData.phone,
+          },
+        },
+      });
+
+      if (stripeError) {
+        console.error('Error de Stripe:', stripeError);
+        setPaymentError(stripeError.message || 'Error procesando el pago');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (paymentIntent?.status === 'succeeded') {
+        // Confirmar el pago en el backend y crear la reserva
+        const confirmResponse = await paymentService.confirmPayment({
+          paymentIntentId: paymentIntentId,
+          checkIn: reservationData!.checkIn,
+          checkOut: reservationData!.checkOut,
+          guests: reservationData!.guests,
+          guestInfo: {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+            specialRequests: formData.specialRequests || undefined
+          }
+        });
+
+        if (confirmResponse.success && confirmResponse.data) {
+          // Crear objeto GuestInfo para compatibilidad con el callback
+          const guestInfo: GuestInfo = {
+            ...formData,
+            cardNumber: '****', // No guardamos el número real
+            expiryDate: '**/**',
+            cvv: '***'
+          };
+          
+          // Pasar el reservationId al callback
+          onSubmit(guestInfo, confirmResponse.data.reservationId);
+        } else {
+          setPaymentError(confirmResponse.message || 'Error confirmando la reserva');
+        }
+      } else {
+        setPaymentError('El pago no se completó correctamente');
+      }
+    } catch (error: any) {
+      console.error('Error procesando pago:', error);
+      setPaymentError(error.message || 'Error procesando el pago');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Opciones de estilo para el CardElement de Stripe
+  const cardElementOptions = {
+    style: {
+      base: {
+        fontSize: '16px',
+        color: '#424770',
+        '::placeholder': {
+          color: '#aab7c4',
+        },
+        fontFamily: 'system-ui, sans-serif',
+      },
+      invalid: {
+        color: '#9e2146',
+      },
+    },
+    hidePostalCode: true,
   };
 
   return (
@@ -194,7 +366,7 @@ export default function CheckoutForm({ onSubmit }: CheckoutFormProps) {
         </div>
       </section>
 
-      {/* Información de pago */}
+      {/* Información de pago con Stripe Elements */}
       <section>
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
           <CreditCard className="w-5 h-5 mr-2 text-[#FF385C]" />
@@ -218,68 +390,33 @@ export default function CheckoutForm({ onSubmit }: CheckoutFormProps) {
           </div>
 
           <div>
-            <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">
-              Número de tarjeta *
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Datos de la tarjeta *
             </label>
-            <input
-              type="text"
-              id="cardNumber"
-              name="cardNumber"
-              value={formData.cardNumber}
-              onChange={handleInputChange}
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#FF385C] focus:border-[#FF385C] transition-all ${
-                errors.cardNumber ? 'border-red-500' : 'border-gray-300 hover:border-gray-400'
-              }`}
-              placeholder="1234 5678 9012 3456"
-              maxLength={19}
-            />
-            {errors.cardNumber && (
-              <p className="mt-1 text-sm text-red-600">{errors.cardNumber}</p>
+            {stripe && clientSecret ? (
+              <div className="px-4 py-3 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-[#FF385C] focus-within:border-[#FF385C] transition-all">
+                <CardElement 
+                  options={cardElementOptions}
+                  onChange={(e) => {
+                    if (e.error) {
+                      setPaymentError(e.error.message);
+                    } else {
+                      setPaymentError(null);
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center min-h-[50px]">
+                <div className="flex items-center space-x-2 text-gray-500">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF385C]"></div>
+                  <span className="text-sm">Cargando formulario de pago...</span>
+                </div>
+              </div>
             )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha de expiración *
-              </label>
-              <input
-                type="text"
-                id="expiryDate"
-                name="expiryDate"
-                value={formData.expiryDate}
-                onChange={handleInputChange}
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#FF385C] focus:border-[#FF385C] transition-all ${
-                errors.expiryDate ? 'border-red-500' : 'border-gray-300 hover:border-gray-400'
-              }`}
-                placeholder="MM/AA"
-                maxLength={5}
-              />
-              {errors.expiryDate && (
-                <p className="mt-1 text-sm text-red-600">{errors.expiryDate}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="cvv" className="block text-sm font-medium text-gray-700 mb-1">
-                CVV *
-              </label>
-              <input
-                type="text"
-                id="cvv"
-                name="cvv"
-                value={formData.cvv}
-                onChange={handleInputChange}
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#FF385C] focus:border-[#FF385C] transition-all ${
-                errors.cvv ? 'border-red-500' : 'border-gray-300 hover:border-gray-400'
-              }`}
-                placeholder="123"
-                maxLength={4}
-              />
-              {errors.cvv && (
-                <p className="mt-1 text-sm text-red-600">{errors.cvv}</p>
-              )}
-            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              🔒 Tu información de pago está protegida y encriptada por Stripe
+            </p>
           </div>
         </div>
       </section>
@@ -303,20 +440,28 @@ export default function CheckoutForm({ onSubmit }: CheckoutFormProps) {
         </div>
       </section>
 
+      {/* Mensaje de error de pago */}
+      {paymentError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start">
+          <AlertCircle className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-800">{paymentError}</p>
+        </div>
+      )}
+
       {/* Botón de envío */}
       <div className="pt-6 border-t border-gray-200">
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || !stripe || !clientSecret}
           className="w-full bg-[#FF385C] text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-[#E31C5F] focus:ring-2 focus:ring-[#FF385C] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
         >
           {isSubmitting ? (
             <div className="flex items-center justify-center">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-              Procesando reserva...
+              Procesando pago...
             </div>
           ) : (
-            'Confirmar reserva'
+            'Confirmar reserva y pagar'
           )}
         </button>
         
@@ -325,5 +470,47 @@ export default function CheckoutForm({ onSubmit }: CheckoutFormProps) {
         </p>
       </div>
     </form>
+  );
+}
+
+// Componente principal que envuelve con Elements
+export default function CheckoutForm({ onSubmit, reservationData }: CheckoutFormProps) {
+  // Solo renderizar en el cliente
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const stripePromiseInstance = mounted ? getStripePromise() : null;
+
+  if (!mounted || !stripePromiseInstance) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF385C]"></div>
+      </div>
+    );
+  }
+
+  const options: StripeElementsOptions = {
+    appearance: {
+      theme: 'stripe',
+      variables: {
+        colorPrimary: '#FF385C',
+        colorBackground: '#ffffff',
+        colorText: '#424770',
+        colorDanger: '#df1b41',
+        fontFamily: 'system-ui, sans-serif',
+        spacingUnit: '4px',
+        borderRadius: '8px',
+      },
+    },
+    locale: 'es',
+  };
+
+  return (
+    <Elements stripe={stripePromiseInstance} options={options}>
+      <PaymentForm onSubmit={onSubmit} reservationData={reservationData} />
+    </Elements>
   );
 }

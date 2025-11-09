@@ -461,6 +461,16 @@ export const authService = {
         };
       }
 
+      // ⚠️ PROTECCIÓN: Verificar si ya hubo un error 429
+      const has429Error = localStorage.getItem('auth_429_error');
+      if (has429Error === 'true') {
+        console.warn('⚠️ [authService] Error 429 detectado anteriormente, no intentando renovar token');
+        return {
+          success: false,
+          message: 'Demasiados intentos de renovación. Por favor, inicia sesión nuevamente.'
+        };
+      }
+
       console.log('🔄 [authService] Renovando token...');
       const response = await apiClient.post<AuthResponse>('/api/auth/refresh', {
         token: currentToken
@@ -472,6 +482,9 @@ export const authService = {
         // Actualizar token usando tokenStorage
         tokenStorage.set(response.token);
         
+        // Limpiar flag de error 429 si la renovación fue exitosa
+        localStorage.removeItem('auth_429_error');
+        
         // Si también se devuelve información del usuario, actualizarla
         if (response.user) {
           localStorage.setItem('user', JSON.stringify(response.user));
@@ -479,8 +492,21 @@ export const authService = {
       }
 
       return response;
-    } catch (error) {
+    } catch (error: any) {
       console.error('💥 [authService] Error renovando token:', error);
+      
+      // ⚠️ PROTECCIÓN: Detectar error 429 y marcar para no intentar más
+      if (error?.message?.includes('429') || error?.message?.includes('Too Many Requests')) {
+        console.error('❌ [authService] Error 429 detectado, marcando para no intentar más renovaciones');
+        localStorage.setItem('auth_429_error', 'true');
+        // Limpiar tokens y redirigir al login
+        localStorage.removeItem('airbnb_auth_token');
+        localStorage.removeItem('user');
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+      }
+      
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Error renovando token'

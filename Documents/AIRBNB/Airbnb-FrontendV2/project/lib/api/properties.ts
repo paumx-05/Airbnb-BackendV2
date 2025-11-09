@@ -370,7 +370,7 @@ export const propertyService = {
         
         // Si no coincide con ningún campo de ubicación, excluir esta propiedad
         if (!matchesLocation) {
-          return false;
+        return false;
         }
       }
 

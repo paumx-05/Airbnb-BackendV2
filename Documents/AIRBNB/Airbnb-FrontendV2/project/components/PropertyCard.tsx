@@ -197,7 +197,7 @@ export default function PropertyCard({
 
         {/* Price */}
         <div className="pt-1">
-          <span className="text-white font-semibold">${price}</span>
+          <span className="text-white font-semibold">€{price}</span>
           <span className="text-slate-400 text-sm"> total before taxes</span>
         </div>
       </div>

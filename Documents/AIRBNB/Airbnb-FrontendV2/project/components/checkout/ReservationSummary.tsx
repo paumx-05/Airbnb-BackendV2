@@ -1,10 +1,11 @@
 'use client';
 
 import { Calendar, Users, Home, Shield, CreditCard, MapPin } from 'lucide-react';
-import { type Property, type ReservationData } from '@/lib/reservation-mock';
+import { type ReservationProperty, type ReservationData } from '@/lib/types/reservation';
+import { calculatePricingWithFallback, formatCurrency } from '@/lib/utils/pricing';
 
 interface ReservationSummaryProps {
-  property: Property;
+  property: ReservationProperty;
   reservationData: ReservationData;
 }
 
@@ -18,12 +19,22 @@ export default function ReservationSummary({ property, reservationData }: Reserv
     });
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
+  // Calcular precios usando la función utilitaria centralizada con fallback del backend
+  const calculatedValues = calculatePricingWithFallback(
+    {
+      pricePerNight: property.pricePerNight || 0,
+      checkIn: reservationData.checkIn,
+      checkOut: reservationData.checkOut
+    },
+    {
+      subtotal: reservationData.subtotal,
+      cleaningFee: reservationData.cleaningFee,
+      serviceFee: reservationData.serviceFee,
+      taxes: reservationData.taxes,
+      total: reservationData.total,
+      totalNights: reservationData.totalNights
+    }
+  );
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
@@ -87,30 +98,30 @@ export default function ReservationSummary({ property, reservationData }: Reserv
         <div className="space-y-3 text-sm">
           <div className="flex justify-between py-1">
             <span className="text-gray-600">
-              ${property.pricePerNight} × {reservationData.totalNights} noche{reservationData.totalNights > 1 ? 's' : ''}
+              {formatCurrency(calculatedValues.pricePerNight)} × {calculatedValues.nights} noche{calculatedValues.nights > 1 ? 's' : ''}
             </span>
-            <span className="text-gray-900 font-medium">{formatCurrency(reservationData.subtotal)}</span>
+            <span className="text-gray-900 font-medium">{formatCurrency(calculatedValues.subtotal)}</span>
           </div>
 
           <div className="flex justify-between py-1">
             <span className="text-gray-600">Tarifa de limpieza</span>
-            <span className="text-gray-900 font-medium">{formatCurrency(reservationData.cleaningFee)}</span>
+            <span className="text-gray-900 font-medium">{formatCurrency(calculatedValues.cleaningFee)}</span>
           </div>
 
           <div className="flex justify-between py-1">
             <span className="text-gray-600">Tarifa de servicio</span>
-            <span className="text-gray-900 font-medium">{formatCurrency(reservationData.serviceFee)}</span>
+            <span className="text-gray-900 font-medium">{formatCurrency(calculatedValues.serviceFee)}</span>
           </div>
 
           <div className="flex justify-between py-1">
             <span className="text-gray-600">Impuestos</span>
-            <span className="text-gray-900 font-medium">{formatCurrency(reservationData.taxes)}</span>
+            <span className="text-gray-900 font-medium">{formatCurrency(calculatedValues.taxes)}</span>
           </div>
 
           <div className="border-t-2 border-[#FF385C] pt-3 mt-4">
             <div className="flex justify-between items-center">
               <span className="font-bold text-gray-900 text-lg">Total</span>
-              <span className="font-bold text-[#FF385C] text-2xl">{formatCurrency(reservationData.total)}</span>
+              <span className="font-bold text-[#FF385C] text-2xl">{formatCurrency(calculatedValues.total)}</span>
             </div>
           </div>
         </div>

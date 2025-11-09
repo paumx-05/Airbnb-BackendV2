@@ -160,8 +160,8 @@ const AirbnbFilters = () => {
           <strong>Filtros activos:</strong> {
             [
               filters.propertyType && `Tipo: ${filters.propertyType}`,
-              filters.minPrice > 0 && `Precio: $${filters.minPrice}+`,
-              filters.maxPrice < 1000 && `Precio: $${filters.maxPrice}-`,
+              filters.minPrice > 0 && `Precio: €${filters.minPrice}+`,
+              filters.maxPrice < 1000 && `Precio: €${filters.maxPrice}-`,
               filters.minRating > 0 && `${filters.minRating}+ estrellas`,
               filters.instantBook && 'Reserva instantánea',
               filters.amenities.length > 0 && `${filters.amenities.length} amenidades`

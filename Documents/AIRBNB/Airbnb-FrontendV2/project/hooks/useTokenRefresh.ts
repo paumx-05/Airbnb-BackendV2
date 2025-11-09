@@ -16,6 +16,9 @@ interface UseTokenRefreshOptions {
 export const useTokenRefresh = (options: UseTokenRefreshOptions = {}) => {
   const { refreshToken } = useAuth();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const has429Error = useRef<boolean>(false); // Flag para detectar error 429
+  const refreshAttempts = useRef<number>(0); // Contador de intentos
+  const MAX_REFRESH_ATTEMPTS = 1; // Solo permitir 1 intento
   
   const {
     checkInterval = 14 * 60 * 1000, // 14 minutos
@@ -26,6 +29,30 @@ export const useTokenRefresh = (options: UseTokenRefreshOptions = {}) => {
     console.log('🔄 [useTokenRefresh] Configurando renovación automática de tokens...');
     
     const checkAndRefreshToken = async () => {
+      // ⚠️ PROTECCIÓN: Verificar flag en localStorage (persistente entre recargas)
+      const has429ErrorInStorage = localStorage.getItem('auth_429_error') === 'true';
+      if (has429ErrorInStorage || has429Error.current) {
+        console.warn('⚠️ [useTokenRefresh] Error 429 detectado anteriormente, deteniendo renovación automática');
+        has429Error.current = true;
+        // Limpiar intervalo si existe
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        return;
+      }
+      
+      // ⚠️ PROTECCIÓN: No intentar renovar si ya se alcanzó el máximo de intentos
+      if (refreshAttempts.current >= MAX_REFRESH_ATTEMPTS) {
+        console.warn('⚠️ [useTokenRefresh] Máximo de intentos alcanzado, deteniendo renovación automática');
+        // Limpiar intervalo si existe
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        return;
+      }
+      
       try {
         const token = localStorage.getItem('airbnb_auth_token');
         if (!token) {
@@ -45,17 +72,53 @@ export const useTokenRefresh = (options: UseTokenRefreshOptions = {}) => {
           // Si el token expira en menos de refreshBeforeExpiry, renovarlo
           if (timeUntilExpiry < refreshBeforeExpiry) {
             console.log('🔄 [useTokenRefresh] Token próximo a expirar, renovando...');
-            await refreshToken();
+            refreshAttempts.current += 1;
+            try {
+              await refreshToken();
+              refreshAttempts.current = 0; // Resetear si tiene éxito
+            } catch (error: any) {
+              // Detectar error 429 y detener renovación automática
+              if (error?.message?.includes('429') || 
+                  error?.message?.includes('Too Many Requests') ||
+                  error?.message?.includes('Error 429')) {
+                console.error('❌ [useTokenRefresh] Error 429 detectado, deteniendo renovación automática');
+                has429Error.current = true;
+                // Marcar en localStorage para persistencia
+                localStorage.setItem('auth_429_error', 'true');
+                // Limpiar intervalo
+                if (intervalRef.current) {
+                  clearInterval(intervalRef.current);
+                  intervalRef.current = null;
+                }
+                return; // NO re-lanzar, solo detener
+              }
+              throw error; // Re-lanzar otros errores
+            }
           } else {
             console.log('✅ [useTokenRefresh] Token aún válido, no es necesario renovar');
           }
         } catch (error) {
           console.error('💥 [useTokenRefresh] Error decodificando token:', error);
-          // Si no se puede decodificar el token, intentar renovar
-          await refreshToken();
+          // Si no se puede decodificar el token, NO intentar renovar automáticamente
+          // Esto evita bucles infinitos
+          console.warn('⚠️ [useTokenRefresh] Token inválido, pero NO renovando automáticamente para evitar bucles');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('💥 [useTokenRefresh] Error en renovación automática:', error);
+        // Detectar error 429 y detener renovación automática
+        if (error?.message?.includes('429') || 
+            error?.message?.includes('Too Many Requests') ||
+            error?.message?.includes('Error 429')) {
+          console.error('❌ [useTokenRefresh] Error 429 detectado, deteniendo renovación automática');
+          has429Error.current = true;
+          // Marcar en localStorage para persistencia
+          localStorage.setItem('auth_429_error', 'true');
+          // Limpiar intervalo
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+        }
       }
     };
 

@@ -6,8 +6,9 @@ import { ArrowLeft, Calendar, Users, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import CheckoutForm from '@/components/checkout/CheckoutForm';
 import ReservationSummary from '@/components/checkout/ReservationSummary';
-import { calculateReservationCost, type Property as ReservationProperty, type ReservationData, type GuestInfo } from '@/lib/reservation-mock';
+import { type ReservationProperty, type ReservationData, type GuestInfo } from '@/lib/types/reservation';
 import { propertyService, type Property as ApiProperty, getLocationString } from '@/lib/api/properties';
+import { paymentService } from '@/lib/api/payments';
 import Logo from '@/components/header/Logo';
 import UserMenu from '@/components/auth/UserMenu';
 
@@ -33,6 +34,7 @@ export default function CheckoutPage() {
   const [property, setProperty] = useState<ReservationProperty | null>(null);
   const [reservationData, setReservationData] = useState<ReservationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadCheckoutData = async () => {
@@ -66,9 +68,43 @@ export default function CheckoutPage() {
         const reservationProperty = mapApiPropertyToReservationProperty(apiProperty);
         setProperty(reservationProperty);
 
-        // Calcular datos de la reserva
-        const calculatedData = calculateReservationCost(reservationProperty, checkIn, checkOut, guests);
-        setReservationData(calculatedData);
+        // Calcular datos de la reserva usando el servicio de pagos del backend
+        try {
+          const checkoutResponse = await paymentService.calculateCheckout({
+            propertyId: propertyId,
+            checkIn,
+            checkOut,
+            guests
+          });
+
+          if (checkoutResponse.success && checkoutResponse.data) {
+            // Crear ReservationData con los datos del backend
+            const calculatedData: ReservationData = {
+              propertyId,
+              checkIn,
+              checkOut,
+              guests,
+              totalNights: checkoutResponse.data.totalNights,
+              subtotal: checkoutResponse.data.subtotal,
+              cleaningFee: checkoutResponse.data.cleaningFee,
+              serviceFee: checkoutResponse.data.serviceFee,
+              taxes: checkoutResponse.data.taxes,
+              total: checkoutResponse.data.total
+            };
+            setReservationData(calculatedData);
+            console.log('✅ [CheckoutPage] Checkout calculado desde el backend:', calculatedData.total);
+          } else {
+            // Error: no hay fallback, mostrar error al usuario
+            console.error('❌ [CheckoutPage] Error calculando checkout:', checkoutResponse.message);
+            setError('Error calculando el precio. Por favor, intenta de nuevo.');
+            return;
+          }
+        } catch (error: any) {
+          // Error: no hay fallback, mostrar error al usuario
+          console.error('❌ [CheckoutPage] Error calculando checkout:', error);
+          setError(error.message || 'Error de conexión con el servidor. Por favor, intenta de nuevo.');
+          return;
+        }
         
         console.log('✅ [CheckoutPage] Datos de checkout cargados correctamente');
       } catch (error) {
@@ -82,17 +118,20 @@ export default function CheckoutPage() {
     loadCheckoutData();
   }, [searchParams, router]);
 
-  const handleReservationSubmit = async (guestInfo: GuestInfo) => {
+  const handleReservationSubmit = async (guestInfo: GuestInfo, reservationId?: string) => {
     if (!reservationData) return;
 
-    // Aquí se procesaría la reserva
-    // Por ahora, redirigimos a una página de confirmación
+    // El pago ya fue procesado por Stripe en el CheckoutForm
+    // Redirigir a la página de confirmación con el reservationId del backend
     const params = new URLSearchParams({
-      reservationId: `RES-${Date.now()}`,
       propertyId: reservationData.propertyId,
       checkIn: reservationData.checkIn,
       checkOut: reservationData.checkOut
     });
+    
+    if (reservationId) {
+      params.set('reservationId', reservationId);
+    }
     
     router.push(`/confirmation?${params.toString()}`);
   };
@@ -103,6 +142,24 @@ export default function CheckoutPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF385C] mx-auto"></div>
           <p className="mt-4 text-gray-600">Cargando datos de la reserva...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Error</h1>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Link 
+            href="/"
+            className="inline-flex items-center px-4 py-2 bg-[#FF385C] text-white rounded-lg hover:bg-[#E31C5F] transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Volver al inicio
+          </Link>
         </div>
       </div>
     );
@@ -189,7 +246,16 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <CheckoutForm onSubmit={handleReservationSubmit} />
+              <CheckoutForm 
+                onSubmit={handleReservationSubmit}
+                reservationData={reservationData ? {
+                  propertyId: reservationData.propertyId,
+                  checkIn: reservationData.checkIn,
+                  checkOut: reservationData.checkOut,
+                  guests: reservationData.guests,
+                  total: reservationData.total
+                } : undefined}
+              />
             </div>
           </div>
 

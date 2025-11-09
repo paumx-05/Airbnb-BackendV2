@@ -234,6 +234,10 @@ const PropertyDetail = ({ propertyId }: PropertyDetailProps) => {
             hostId={(property as any).hostId || (property.host as any)?.id}
             description={property.description}
             amenities={property.amenities}
+            bedrooms={(property as any).bedrooms}
+            bathrooms={(property as any).bathrooms}
+            maxGuests={property.maxGuests}
+            propertyType={property.propertyType}
           />
           {/* Componente de Reviews */}
           <PropertyReviews 

@@ -14,13 +14,18 @@ interface HostInfoProps {
   hostId?: string; // ID del host de la propiedad
   description: string;
   amenities: string[];
+  bedrooms?: number;
+  bathrooms?: number;
+  maxGuests?: number;
+  propertyType?: 'entire' | 'private' | 'shared';
 }
 
 // Componente de información del host y descripción de la propiedad
-const HostInfo = ({ host, hostId, description, amenities }: HostInfoProps) => {
+const HostInfo = ({ host, hostId, description, amenities, bedrooms, bathrooms, maxGuests, propertyType }: HostInfoProps) => {
   const { user } = useAuth();
-  const [hostAvatar, setHostAvatar] = useState(host?.avatar || '/default-avatar.png');
+  const [hostAvatar, setHostAvatar] = useState(host?.avatar || '');
   const [avatarUpdateKey, setAvatarUpdateKey] = useState(0);
+  const [avatarError, setAvatarError] = useState(false);
 
   // Verificar si el usuario actual es el host de esta propiedad
   const isCurrentUserHost = user?.id && (hostId === user.id || (host as any)?.id === user.id);
@@ -29,7 +34,8 @@ const HostInfo = ({ host, hostId, description, amenities }: HostInfoProps) => {
   useEffect(() => {
     if (!isCurrentUserHost || !user?.id) {
       // Si no es el host, mantener el avatar del host original
-      setHostAvatar(host?.avatar || '/default-avatar.png');
+      setHostAvatar(host?.avatar || '');
+      setAvatarError(false);
       return;
     }
 
@@ -38,6 +44,7 @@ const HostInfo = ({ host, hostId, description, amenities }: HostInfoProps) => {
       // Actualizar el avatar del host con el nuevo avatar del usuario
       if (user?.avatar) {
         setHostAvatar(user.avatar);
+        setAvatarError(false);
         setAvatarUpdateKey(prev => prev + 1);
       }
     };
@@ -53,8 +60,10 @@ const HostInfo = ({ host, hostId, description, amenities }: HostInfoProps) => {
   useEffect(() => {
     if (isCurrentUserHost && user?.avatar) {
       setHostAvatar(user.avatar);
+      setAvatarError(false);
     } else if (host?.avatar) {
       setHostAvatar(host.avatar);
+      setAvatarError(false);
     }
   }, [isCurrentUserHost, user?.avatar, host?.avatar]);
 
@@ -64,16 +73,23 @@ const HostInfo = ({ host, hostId, description, amenities }: HostInfoProps) => {
       {host && (
         <div className="border-b border-gray-200 pb-8">
           <div className="flex items-center gap-4 mb-6">
-            <img 
-              key={avatarUpdateKey}
-              src={`${hostAvatar}${hostAvatar.includes('?') ? '&' : '?'}v=${avatarUpdateKey}`} 
-              alt={`Avatar de ${host.name}`}
-              className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = '/default-avatar.png';
-              }}
-            />
+            {hostAvatar && !avatarError ? (
+              <img 
+                key={avatarUpdateKey}
+                src={`${hostAvatar}${hostAvatar.includes('?') ? '&' : '?'}v=${avatarUpdateKey}`} 
+                alt={`Avatar de ${host.name}`}
+                className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                onError={() => {
+                  setAvatarError(true);
+                }}
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FF385C] to-[#E31C5F] flex items-center justify-center border-2 border-gray-200">
+                <span className="text-white text-xl font-semibold">
+                  {host.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
             <div>
               <h3 className="text-xl font-semibold text-gray-900">
                 Anfitrión: {host.name}
@@ -93,13 +109,51 @@ const HostInfo = ({ host, hostId, description, amenities }: HostInfoProps) => {
       <div className="space-y-4 border-b border-gray-200 pb-8">
         <h3 className="text-xl font-semibold text-gray-900">Acerca de este lugar</h3>
         <p className="text-gray-700 leading-relaxed">{description}</p>
+        
+        {/* Detalles de la propiedad */}
+        {(bedrooms || bathrooms || maxGuests || propertyType) && (
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">Detalles del alojamiento</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {bedrooms && (
+                <div className="flex flex-col">
+                  <span className="text-sm text-gray-600">Habitaciones</span>
+                  <span className="text-lg font-semibold text-gray-900">{bedrooms}</span>
+                </div>
+              )}
+              {bathrooms && (
+                <div className="flex flex-col">
+                  <span className="text-sm text-gray-600">Baños</span>
+                  <span className="text-lg font-semibold text-gray-900">{bathrooms}</span>
+                </div>
+              )}
+              {maxGuests && (
+                <div className="flex flex-col">
+                  <span className="text-sm text-gray-600">Huéspedes</span>
+                  <span className="text-lg font-semibold text-gray-900">Hasta {maxGuests}</span>
+                </div>
+              )}
+              {propertyType && (
+                <div className="flex flex-col">
+                  <span className="text-sm text-gray-600">Tipo</span>
+                  <span className="text-lg font-semibold text-gray-900">
+                    {propertyType === 'entire' ? 'Casa completa' : 
+                     propertyType === 'private' ? 'Habitación privada' : 
+                     'Habitación compartida'}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Amenidades */}
       <div className="border-b border-gray-200 pb-8">
         <h3 className="text-xl font-semibold text-gray-900 mb-6">¿Qué incluye este lugar?</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {amenities.map((amenity, index) => (
+        {amenities && amenities.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {amenities.map((amenity, index) => (
             <div key={index} className="flex items-center gap-3">
               <div className="w-6 h-6 flex items-center justify-center">
                 {/* Iconos básicos para diferentes amenidades */}
@@ -201,8 +255,11 @@ const HostInfo = ({ host, hostId, description, amenities }: HostInfoProps) => {
               </div>
               <span className="text-gray-700">{amenity}</span>
             </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-600 italic">No se han especificado amenidades para este alojamiento.</p>
+        )}
       </div>
 
       {/* Información adicional */}

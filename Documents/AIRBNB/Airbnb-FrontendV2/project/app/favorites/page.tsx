@@ -200,7 +200,7 @@ export default function FavoritesPage() {
                     <div className="flex items-baseline justify-between mt-4">
                       <div>
                         <span className="text-white font-bold text-lg">
-                          ${property.pricePerNight}
+                          €{property.pricePerNight}
                         </span>
                         <span className="text-slate-400 text-sm ml-1">noche</span>
                       </div>

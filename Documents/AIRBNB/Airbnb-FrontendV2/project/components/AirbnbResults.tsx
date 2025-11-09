@@ -189,7 +189,7 @@ const PropertyCard = ({ property }: { property: Property }) => {
             </span>
           </div>
           <div className="text-right">
-            <span className="font-semibold text-gray-900">${property.pricePerNight}</span>
+            <span className="font-semibold text-gray-900">€{property.pricePerNight}</span>
             <span className="text-sm text-gray-500">/noche</span>
             <div className="text-xs text-gray-500">Hasta {property.maxGuests} huéspedes</div>
           </div>

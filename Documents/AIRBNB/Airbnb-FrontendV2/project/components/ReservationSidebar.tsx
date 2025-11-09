@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Property, getLocationString } from '@/lib/api/properties';
 import { useReservationCart } from '@/context/ReservationCartContext';
+import { calculateReservationPricing, formatCurrency } from '@/lib/utils/pricing';
 
 // Interfaz para las props del componente de sidebar de reserva
 interface ReservationSidebarProps {
@@ -19,30 +20,14 @@ const ReservationSidebar = ({ property }: ReservationSidebarProps) => {
   const router = useRouter();
   const { addToCart, isInCart } = useReservationCart();
 
-  // Función para calcular el precio total basado en fechas y huéspedes
-  const calculateTotal = () => {
-    if (!checkIn || !checkOut) return 0;
-    
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
-    const timeDiff = checkOutDate.getTime() - checkInDate.getTime();
-    const nights = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-    
-    if (nights <= 0) return 0;
-    
-    return nights * property.pricePerNight;
-  };
-
-  // Función para calcular impuestos (10% del total)
-  const calculateTaxes = () => {
-    const total = calculateTotal();
-    return Math.round(total * 0.1);
-  };
-
-  // Función para calcular el total final con impuestos
-  const calculateFinalTotal = () => {
-    return calculateTotal() + calculateTaxes();
-  };
+  // Calcular precios usando la función utilitaria centralizada
+  const pricing = checkIn && checkOut 
+    ? calculateReservationPricing({
+        pricePerNight: property.pricePerNight,
+        checkIn,
+        checkOut
+      })
+    : null;
 
   // Función para manejar la reserva - navega al checkout
   const handleReservation = () => {
@@ -105,18 +90,6 @@ const ReservationSidebar = ({ property }: ReservationSidebarProps) => {
     }
   };
 
-  // Función para calcular noches
-  const calculateNights = () => {
-    if (!checkIn || !checkOut) return 0;
-    
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
-    const timeDiff = checkOutDate.getTime() - checkInDate.getTime();
-    const nights = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-    
-    return nights > 0 ? nights : 0;
-  };
-
   // Función para obtener la fecha mínima (hoy)
   const getMinDate = () => {
     const today = new Date();
@@ -130,16 +103,19 @@ const ReservationSidebar = ({ property }: ReservationSidebarProps) => {
     return oneYearFromNow.toISOString().split('T')[0];
   };
 
-  const total = calculateTotal();
-  const taxes = calculateTaxes();
-  const finalTotal = calculateFinalTotal();
+  // Extraer valores de pricing (o usar valores por defecto si no hay fechas)
+  const total = pricing?.subtotal || 0;
+  const cleaningFee = pricing?.cleaningFee || 0;
+  const serviceFee = pricing?.serviceFee || 0;
+  const taxes = pricing?.taxes || 0;
+  const finalTotal = pricing?.total || 0;
 
   return (
     <div className="reservation-sidebar bg-white border border-gray-200 rounded-2xl p-6 sticky top-6">
       {/* Sección de precio y rating */}
       <div className="mb-6">
         <div className="flex items-baseline gap-2 mb-2">
-          <span className="text-2xl font-bold text-gray-900">€{property.pricePerNight}</span>
+          <span className="text-2xl font-bold text-gray-900">{formatCurrency(property.pricePerNight)}</span>
           <span className="text-gray-600">por noche</span>
         </div>
         
@@ -241,27 +217,38 @@ const ReservationSidebar = ({ property }: ReservationSidebarProps) => {
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
         >
-          {checkIn && checkOut ? `Reservar - €${finalTotal}` : 'Selecciona fechas'}
+          {checkIn && checkOut ? `Reservar - ${formatCurrency(finalTotal)}` : 'Selecciona fechas'}
         </button>
       </div>
 
       {/* Desglose de precios (solo si hay fechas seleccionadas) */}
-      {checkIn && checkOut && total > 0 && (
+      {pricing && pricing.total > 0 && (
         <div className="mt-6 pt-6 border-t border-gray-200">
+          <h4 className="font-semibold text-gray-900 mb-4 text-sm">Desglose de precios</h4>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <span>€{property.pricePerNight} × {Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24))} noches</span>
-              <span>€{total}</span>
+              <span className="text-gray-600">{formatCurrency(property.pricePerNight)} × {pricing.totalNights} noche{pricing.totalNights > 1 ? 's' : ''}</span>
+              <span className="text-gray-900 font-medium">{formatCurrency(pricing.subtotal)}</span>
             </div>
             
             <div className="flex justify-between">
-              <span>Impuestos</span>
-              <span>€{taxes}</span>
+              <span className="text-gray-600">Tarifa de limpieza</span>
+              <span className="text-gray-900 font-medium">{formatCurrency(pricing.cleaningFee)}</span>
             </div>
             
-            <div className="flex justify-between font-bold text-lg pt-3 border-t border-gray-200">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Tarifa de servicio</span>
+              <span className="text-gray-900 font-medium">{formatCurrency(pricing.serviceFee)}</span>
+            </div>
+            
+            <div className="flex justify-between">
+              <span className="text-gray-600">Impuestos</span>
+              <span className="text-gray-900 font-medium">{formatCurrency(pricing.taxes)}</span>
+            </div>
+            
+            <div className="flex justify-between font-bold text-lg pt-3 border-t-2 border-[#FF385C]">
               <span>Total</span>
-              <span>€{finalTotal}</span>
+              <span className="text-[#FF385C]">{formatCurrency(pricing.total)}</span>
             </div>
           </div>
         </div>

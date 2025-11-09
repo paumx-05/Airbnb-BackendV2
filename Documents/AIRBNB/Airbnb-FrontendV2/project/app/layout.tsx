@@ -9,8 +9,8 @@ import { FavoritesProvider } from '@/context/FavoritesContext';
 import { TokenRefreshProvider } from '@/components/auth/TokenRefreshProvider';
 import WelcomeNotification from '@/components/notifications/WelcomeNotification';
 
-// Importar el interceptor de renovación automática de tokens
-import '@/lib/api/authInterceptor';
+// ⚠️ Interceptor DESHABILITADO - ApiClient ya maneja la renovación de tokens
+// import '@/lib/api/authInterceptor'; // DESHABILITADO para evitar bucles infinitos
 
 const jost = Jost({ 
   subsets: ['latin'],
