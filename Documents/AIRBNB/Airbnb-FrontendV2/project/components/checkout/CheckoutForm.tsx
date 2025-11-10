@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
 import {
   Elements,
@@ -18,12 +18,21 @@ import { paymentService } from '@/lib/api/payments';
 let stripePromise: Promise<any> | null = null;
 
 const getStripePromise = () => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') {
+    console.log('⚠️ [CheckoutForm] getStripePromise: window no está disponible (SSR)');
+    return null;
+  }
   
   if (!stripePromise) {
     const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 
       'pk_test_51SRF80BKr0sSqmIZYTdA95PzpoGwrJ9SRepCx70oDiZixvSxRGbGos40M2BQCCeuLY0vYnCYmkjavPYhU3wh0VsG00ehrDIg4J';
     
+    if (!STRIPE_PUBLISHABLE_KEY) {
+      console.error('❌ [CheckoutForm] No se encontró NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
+      return null;
+    }
+    
+    console.log('🔍 [CheckoutForm] Inicializando Stripe con clave pública (primeros 20 chars):', STRIPE_PUBLISHABLE_KEY.substring(0, 20) + '...');
     stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
   }
   
@@ -60,27 +69,46 @@ function PaymentForm({ onSubmit, reservationData }: CheckoutFormProps) {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [isLoadingPaymentIntent, setIsLoadingPaymentIntent] = useState(false);
 
-  // Crear payment intent cuando el componente se monta
-  useEffect(() => {
-    if (reservationData && stripe) {
-      createPaymentIntent();
+  // Función para crear el payment intent (memoizada para evitar recreaciones innecesarias)
+  const createPaymentIntent = useCallback(async () => {
+    if (!reservationData) {
+      console.warn('⚠️ [PaymentForm] No hay reservationData para crear payment intent');
+      return;
     }
-  }, [reservationData, stripe]);
-
-  // Función para crear el payment intent
-  const createPaymentIntent = async () => {
-    if (!reservationData) return;
 
     try {
-      setIsSubmitting(true);
+      setIsLoadingPaymentIntent(true);
       setPaymentError(null);
+
+      // Validar datos antes de llamar al servicio
+      if (!reservationData.propertyId || !reservationData.checkIn || !reservationData.checkOut || !reservationData.guests) {
+        const errorMsg = 'Faltan datos requeridos para crear el payment intent';
+        console.error('❌ [PaymentForm]', errorMsg);
+        setPaymentError(errorMsg);
+        setIsLoadingPaymentIntent(false);
+        return;
+      }
+
+      console.log('🔍 [PaymentForm] Creando payment intent con datos:', {
+        propertyId: reservationData.propertyId,
+        checkIn: reservationData.checkIn,
+        checkOut: reservationData.checkOut,
+        guests: reservationData.guests
+      });
 
       const response = await paymentService.createPaymentIntent({
         propertyId: reservationData.propertyId,
         checkIn: reservationData.checkIn,
         checkOut: reservationData.checkOut,
         guests: reservationData.guests
+      });
+
+      console.log('🔍 [PaymentForm] Respuesta del servicio:', {
+        success: response.success,
+        hasData: !!response.data,
+        message: response.message
       });
 
       if (response.success && response.data) {
@@ -91,6 +119,7 @@ function PaymentForm({ onSubmit, reservationData }: CheckoutFormProps) {
         if (!clientSecret || !clientSecret.includes('_secret_')) {
           console.error('❌ [PaymentForm] ClientSecret inválido:', clientSecret);
           setPaymentError('Error: El servidor devolvió un client secret inválido. Por favor, contacta al soporte.');
+          setIsLoadingPaymentIntent(false);
           return;
         }
         
@@ -98,6 +127,7 @@ function PaymentForm({ onSubmit, reservationData }: CheckoutFormProps) {
         if (clientSecret.includes('_mock_') || clientSecret.startsWith('pi_mock')) {
           console.error('❌ [PaymentForm] ClientSecret es un mock:', clientSecret);
           setPaymentError('Error: El servidor está devolviendo datos de prueba. Verifica la configuración del backend.');
+          setIsLoadingPaymentIntent(false);
           return;
         }
         
@@ -107,15 +137,25 @@ function PaymentForm({ onSubmit, reservationData }: CheckoutFormProps) {
         setClientSecret(clientSecret);
         setPaymentIntentId(paymentIntentId);
       } else {
-        setPaymentError(response.message || 'Error creando el payment intent');
+        const errorMsg = response.message || 'Error creando el payment intent';
+        console.error('❌ [PaymentForm] Error en respuesta:', errorMsg);
+        setPaymentError(errorMsg);
       }
     } catch (error: any) {
-      console.error('Error creando payment intent:', error);
-      setPaymentError(error.message || 'Error de conexión con el servidor');
+      console.error('💥 [PaymentForm] Error creando payment intent:', error);
+      setPaymentError(error.message || 'Error de conexión con el servidor. Verifica que el backend esté funcionando.');
     } finally {
-      setIsSubmitting(false);
+      setIsLoadingPaymentIntent(false);
     }
-  };
+  }, [reservationData]);
+
+  // Crear payment intent cuando el componente se monta y stripe está disponible
+  useEffect(() => {
+    if (reservationData && stripe && !clientSecret && !isLoadingPaymentIntent) {
+      console.log('🔍 [PaymentForm] Iniciando creación de payment intent...');
+      createPaymentIntent();
+    }
+  }, [reservationData, stripe, clientSecret, isLoadingPaymentIntent, createPaymentIntent]);
 
   // Validaciones básicas
   const validateField = (name: string, value: string): string => {
@@ -393,7 +433,34 @@ function PaymentForm({ onSubmit, reservationData }: CheckoutFormProps) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Datos de la tarjeta *
             </label>
-            {stripe && clientSecret ? (
+            {!stripe ? (
+              <div className="px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center min-h-[50px]">
+                <div className="flex items-center space-x-2 text-gray-500">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF385C]"></div>
+                  <span className="text-sm">Inicializando Stripe...</span>
+                </div>
+              </div>
+            ) : isLoadingPaymentIntent ? (
+              <div className="px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center min-h-[50px]">
+                <div className="flex items-center space-x-2 text-gray-500">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF385C]"></div>
+                  <span className="text-sm">Preparando formulario de pago...</span>
+                </div>
+              </div>
+            ) : !clientSecret ? (
+              <div className="px-4 py-3 border border-red-300 rounded-lg bg-red-50 flex items-center justify-center min-h-[50px]">
+                <div className="flex flex-col items-center space-y-2 text-red-600">
+                  <span className="text-sm font-medium">Error al cargar el formulario de pago</span>
+                  <button
+                    type="button"
+                    onClick={createPaymentIntent}
+                    className="text-xs underline hover:no-underline"
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              </div>
+            ) : (
               <div className="px-4 py-3 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-[#FF385C] focus-within:border-[#FF385C] transition-all">
                 <CardElement 
                   options={cardElementOptions}
@@ -405,13 +472,6 @@ function PaymentForm({ onSubmit, reservationData }: CheckoutFormProps) {
                     }
                   }}
                 />
-              </div>
-            ) : (
-              <div className="px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center min-h-[50px]">
-                <div className="flex items-center space-x-2 text-gray-500">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF385C]"></div>
-                  <span className="text-sm">Cargando formulario de pago...</span>
-                </div>
               </div>
             )}
             <p className="mt-2 text-xs text-gray-500">
@@ -477,17 +537,49 @@ function PaymentForm({ onSubmit, reservationData }: CheckoutFormProps) {
 export default function CheckoutForm({ onSubmit, reservationData }: CheckoutFormProps) {
   // Solo renderizar en el cliente
   const [mounted, setMounted] = useState(false);
+  const [stripeError, setStripeError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
+    
+    // Verificar que la clave pública de Stripe esté disponible
+    const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 
+      'pk_test_51SRF80BKr0sSqmIZYTdA95PzpoGwrJ9SRepCx70oDiZixvSxRGbGos40M2BQCCeuLY0vYnCYmkjavPYhU3wh0VsG00ehrDIg4J';
+    
+    if (!STRIPE_PUBLISHABLE_KEY) {
+      setStripeError('Error: No se encontró la clave pública de Stripe. Verifica la configuración.');
+      console.error('❌ [CheckoutForm] NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY no está configurada');
+    }
   }, []);
 
   const stripePromiseInstance = mounted ? getStripePromise() : null;
 
-  if (!mounted || !stripePromiseInstance) {
+  if (!mounted) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF385C]"></div>
+      </div>
+    );
+  }
+
+  if (stripeError) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{stripeError}</p>
+          <p className="text-sm text-gray-500">Por favor, verifica la configuración de Stripe.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!stripePromiseInstance) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF385C] mx-auto mb-4"></div>
+          <p className="text-gray-600">Inicializando Stripe...</p>
+        </div>
       </div>
     );
   }

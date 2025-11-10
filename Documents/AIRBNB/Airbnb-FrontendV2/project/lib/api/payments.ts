@@ -129,11 +129,29 @@ export const paymentService = {
   ): Promise<CreatePaymentIntentResponse> {
     try {
       console.log('🔍 [paymentService] Creando payment intent...', data);
+      console.log('🔍 [paymentService] Endpoint: POST /api/payments/checkout/create-intent');
+      
+      // Validar datos antes de enviar
+      if (!data.propertyId || !data.checkIn || !data.checkOut || !data.guests) {
+        const errorMsg = 'Faltan datos requeridos: propertyId, checkIn, checkOut, guests';
+        console.error('❌ [paymentService]', errorMsg);
+        return {
+          success: false,
+          message: errorMsg
+        };
+      }
       
       const response = await apiClient.post<CreatePaymentIntentResponse>(
         '/api/payments/checkout/create-intent',
         data
       );
+      
+      console.log('🔍 [paymentService] Respuesta recibida:', {
+        success: response.success,
+        hasData: !!response.data,
+        hasClientSecret: !!response.data?.clientSecret,
+        message: response.message
+      });
       
       if (response.success && response.data?.clientSecret) {
         const clientSecret = response.data.clientSecret;
@@ -141,27 +159,58 @@ export const paymentService = {
         
         console.log('✅ [paymentService] Payment intent creado:', paymentIntentId);
         console.log('🔍 [paymentService] ClientSecret recibido (primeros 30 chars):', clientSecret.substring(0, 30) + '...');
-        console.log('🔍 [paymentService] ClientSecret completo:', clientSecret);
         
         // Validar formato del clientSecret
         if (!clientSecret.includes('_secret_')) {
-          console.error('❌ [paymentService] ClientSecret no tiene el formato correcto. Debe contener "_secret_"');
+          const errorMsg = 'ClientSecret no tiene el formato correcto. Debe contener "_secret_"';
+          console.error('❌ [paymentService]', errorMsg);
+          return {
+            success: false,
+            message: errorMsg
+          };
         }
         
         if (clientSecret.includes('_mock_') || clientSecret.startsWith('pi_mock')) {
-          console.error('❌ [paymentService] ⚠️ ADVERTENCIA: El backend está devolviendo un clientSecret de prueba/mock.');
-          console.error('❌ [paymentService] El backend debe usar Stripe real y devolver un clientSecret válido.');
+          const errorMsg = 'El backend está devolviendo un clientSecret de prueba/mock. Verifica la configuración del backend.';
+          console.error('❌ [paymentService] ⚠️ ADVERTENCIA:', errorMsg);
+          return {
+            success: false,
+            message: errorMsg
+          };
         }
         
         return response;
       } else {
-        console.log('❌ [paymentService] Error creando payment intent:', response.message);
-        console.log('❌ [paymentService] Response completa:', JSON.stringify(response, null, 2));
-        return response;
+        const errorMsg = response.message || 'Error creando el payment intent';
+        console.error('❌ [paymentService] Error creando payment intent:', errorMsg);
+        console.error('❌ [paymentService] Response completa:', JSON.stringify(response, null, 2));
+        return {
+          success: false,
+          message: errorMsg
+        };
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('💥 [paymentService] Error creando payment intent:', error);
-      throw error;
+      
+      // Manejar errores específicos
+      let errorMessage = 'Error de conexión con el servidor';
+      
+      if (error.message) {
+        if (error.message.includes('404') || error.message.includes('not found')) {
+          errorMessage = 'El endpoint de pagos no está disponible. Verifica que el backend esté funcionando.';
+        } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          errorMessage = 'No estás autenticado. Por favor, inicia sesión nuevamente.';
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'No se pudo conectar con el servidor. Verifica que el backend esté corriendo en http://localhost:5000';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      return {
+        success: false,
+        message: errorMessage
+      };
     }
   },
 

@@ -201,10 +201,24 @@ export class ApiClient {
         // Mensaje más descriptivo para 404
         if (response.status === 404) {
           const endpoint = url.replace(this.baseURL, '');
+          const errorMsg = errorData.message || errorData.error?.message || response.statusText;
+          
+          // Mensaje específico para endpoints de pagos
+          if (endpoint.includes('/payments/checkout/create-intent')) {
+            throw new Error(
+              `El endpoint de creación de payment intent no está disponible (404).\n` +
+              `Verifica que:\n` +
+              `1. El backend esté corriendo en ${this.baseURL}\n` +
+              `2. El endpoint esté implementado: POST ${endpoint}\n` +
+              `3. La ruta esté correctamente registrada en el servidor\n` +
+              `Error: ${errorMsg}`
+            );
+          }
+          
           throw new Error(
             `Endpoint no encontrado (404): ${endpoint}\n` +
             `Verifica en la documentación de Postman cuál es el endpoint correcto.\n` +
-            `Error: ${errorData.message || response.statusText}`
+            `Error: ${errorMsg}`
           );
         }
         
