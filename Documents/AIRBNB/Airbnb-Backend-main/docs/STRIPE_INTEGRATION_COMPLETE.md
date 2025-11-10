@@ -44,8 +44,8 @@ Se ha completado la integración de Stripe real en el backend, reemplazando todo
 Asegúrate de tener estas variables en tu `.env`:
 
 ```env
-STRIPE_SECRET_KEY=sk_test_51SRF80BKr0sSqmIZEOvTau5dlGobdryrBzmksE4VCMA8dktFn9icOmhKVahYvywOKWwXj5o2LyM3hO0WBxOAYnqe00hI9DtAeT
-STRIPE_PUBLISHABLE_KEY=pk_test_51SRF80BKr0sSqmIZYTdA95PzpoGwrJ9SRepCx70oDiZixvSxRGbGos40M2BQCCeuLY0vYnCYmkjavPYhU3wh0VsG00ehrDIg4J
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
 STRIPE_API_VERSION=2025-10-29.clover
 ```
