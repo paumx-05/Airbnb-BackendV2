@@ -2,48 +2,21 @@
 
 // Página de Amigos
 // Permite gestionar la lista de amigos del usuario
+// Integración completa con API del backend
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getAuth } from '@/lib/auth'
-
-interface Amigo {
-  id: string
-  nombre: string
-  email: string
-  avatar?: string
-  fechaAmistad: string
-  estado: 'activo' | 'pendiente' | 'bloqueado'
-}
-
-import { getUsuarioActual } from '@/lib/auth'
-
-// Función para obtener la clave de localStorage para amigos
-function getStorageKey(userId?: string): string {
-  const usuarioId = userId || (typeof window !== 'undefined' ? getUsuarioActual()?.id : null) || 'default'
-  return `gestor-finanzas-amigos-${usuarioId}`
-}
-
-// Función para obtener amigos
-function getAmigos(userId?: string): Amigo[] {
-  if (typeof window !== 'undefined') {
-    const key = getStorageKey(userId)
-    const amigos = localStorage.getItem(key)
-    if (amigos) {
-      return JSON.parse(amigos)
-    }
-  }
-  return []
-}
-
-// Función para guardar amigos
-function saveAmigos(amigos: Amigo[], userId?: string) {
-  if (typeof window !== 'undefined') {
-    const key = getStorageKey(userId)
-    localStorage.setItem(key, JSON.stringify(amigos))
-  }
-}
+import { 
+  getAmigos, 
+  createAmigo, 
+  deleteAmigo, 
+  updateEstadoAmigo,
+  searchAmigos,
+  getAmigosByEstado,
+  type Amigo 
+} from '@/lib/amigos'
 
 export default function AmigosPage() {
   const router = useRouter()
@@ -53,6 +26,9 @@ export default function AmigosPage() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
   const [nombreAmigo, setNombreAmigo] = useState('')
   const [emailAmigo, setEmailAmigo] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [loadingAmigos, setLoadingAmigos] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Verificar autenticación y cargar amigos
   useEffect(() => {
@@ -62,83 +38,77 @@ export default function AmigosPage() {
       return
     }
 
-    // Cargar amigos del usuario actual
-    const usuarioActual = getUsuarioActual()
-    if (usuarioActual) {
-      const amigosData = getAmigos(usuarioActual.id)
-      
-      // Verificar si necesita corrección
-      let necesitaCorreccion = false
-      let amigosMock: Amigo[] = []
-      
-      // Usuario principal debe tener los 3 amigos mock
-      if (usuarioActual.id === 'user-main') {
-        const amigosEsperados = ['mock-1', 'mock-2', 'mock-3']
-        const tieneTodosLosAmigos = amigosEsperados.every(id => 
-          amigosData.some(a => a.id === id)
-        )
-        if (amigosData.length === 0 || !tieneTodosLosAmigos || amigosData.length !== 3) {
-          necesitaCorreccion = true
-          amigosMock = [
-            {
-              id: 'mock-1',
-              nombre: 'Juan Pérez',
-              email: 'juan.perez@example.com',
-              fechaAmistad: new Date().toISOString(),
-              estado: 'activo' as const
-            },
-            {
-              id: 'mock-2',
-              nombre: 'María García',
-              email: 'maria.garcia@example.com',
-              fechaAmistad: new Date().toISOString(),
-              estado: 'activo' as const
-            },
-            {
-              id: 'mock-3',
-              nombre: 'Carlos López',
-              email: 'carlos.lopez@example.com',
-              fechaAmistad: new Date().toISOString(),
-              estado: 'activo' as const
-            }
-          ]
-        }
-      } 
-      // Juan Pérez (y otros usuarios) solo deben tener al usuario principal
-      else {
-        const tieneUsuarioPrincipal = amigosData.some(a => a.id === 'user-main')
-        const tieneASiMismo = amigosData.some(a => a.id === usuarioActual.id)
-        if (amigosData.length === 0 || !tieneUsuarioPrincipal || tieneASiMismo || amigosData.length !== 1) {
-          necesitaCorreccion = true
-          amigosMock = [
-            {
-              id: 'user-main',
-              nombre: 'Usuario Principal',
-              email: 'gestion@gmail.com',
-              fechaAmistad: new Date().toISOString(),
-              estado: 'activo' as const
-            }
-          ]
-        }
-      }
-      
-      // Si necesita corrección, guardar los amigos correctos
-      if (necesitaCorreccion) {
-        saveAmigos(amigosMock, usuarioActual.id)
-        setAmigos(amigosMock)
-      } else {
-        setAmigos(amigosData)
-      }
-    }
+    loadAmigos()
   }, [router])
 
-  // Filtrar y buscar amigos
+  // Cargar amigos desde el backend
+  const loadAmigos = async () => {
+    setLoadingAmigos(true)
+    setError(null)
+    
+    try {
+      const amigosData = await getAmigos()
+      setAmigos(amigosData)
+    } catch (err: any) {
+      console.error('Error al cargar amigos:', err)
+      setError(err.message || 'Error al cargar los amigos')
+      setAmigos([])
+    } finally {
+      setLoadingAmigos(false)
+    }
+  }
+
+  // Buscar y filtrar amigos cuando cambian los parámetros
+  useEffect(() => {
+    const cargarAmigos = async () => {
+      try {
+        setLoadingAmigos(true)
+        let amigosData: Amigo[] = []
+        
+        // Si hay búsqueda, usar búsqueda del backend
+        if (busqueda.trim()) {
+          amigosData = await searchAmigos(busqueda)
+        } 
+        // Si hay filtro de estado (sin búsqueda), usar filtro del backend
+        else if (filtro !== 'todos') {
+          const estado = filtro === 'activos' ? 'activo' : filtro === 'pendientes' ? 'pendiente' : 'bloqueado'
+          amigosData = await getAmigosByEstado(estado)
+        }
+        // Si no hay filtros, cargar todos
+        else {
+          amigosData = await getAmigos()
+        }
+        
+        setAmigos(amigosData)
+        setError(null)
+      } catch (err: any) {
+        console.error('Error al cargar amigos:', err)
+        setError(err.message || 'Error al cargar los amigos')
+        setAmigos([])
+      } finally {
+        setLoadingAmigos(false)
+      }
+    }
+    
+    // Debounce para búsqueda: esperar 300ms después de que el usuario deje de escribir
+    if (busqueda.trim()) {
+      const timeoutId = setTimeout(cargarAmigos, 300)
+      return () => clearTimeout(timeoutId)
+    } else {
+      cargarAmigos()
+    }
+  }, [busqueda, filtro])
+
+  // Filtrar amigos localmente (para cuando hay búsqueda y filtro simultáneos)
   const amigosFiltrados = amigos.filter(amigo => {
     // Filtro por estado
-    if (filtro !== 'todos' && amigo.estado !== filtro) {
-      return false
+    if (filtro !== 'todos') {
+      const estadoEsperado = filtro === 'activos' ? 'activo' : filtro === 'pendientes' ? 'pendiente' : 'bloqueado'
+      if (amigo.estado !== estadoEsperado) {
+        return false
+      }
     }
-    // Búsqueda por nombre o email
+    // Búsqueda por nombre o email (si hay búsqueda activa)
     if (busqueda.trim()) {
       const busquedaLower = busqueda.toLowerCase()
       return (
@@ -160,58 +130,55 @@ export default function AmigosPage() {
   }
 
   // Función para agregar amigo
-  const agregarAmigo = () => {
+  const agregarAmigo = async () => {
     if (!nombreAmigo.trim() || !emailAmigo.trim()) {
       alert('Por favor completa todos los campos')
       return
     }
 
-    // Verificar si el email ya existe
-    if (amigos.some(amigo => amigo.email.toLowerCase() === emailAmigo.toLowerCase())) {
-      alert('Este usuario ya está en tu lista de amigos')
-      return
+    setLoading(true)
+    try {
+      const nuevoAmigo = await createAmigo({
+        nombre: nombreAmigo.trim(),
+        email: emailAmigo.trim(),
+        estado: 'activo'
+      })
+      
+      setAmigos([...amigos, nuevoAmigo])
+      setNombreAmigo('')
+      setEmailAmigo('')
+      setMostrarFormulario(false)
+    } catch (err: any) {
+      console.error('Error al crear amigo:', err)
+      alert(err.message || 'Error al agregar el amigo. Por favor, intenta nuevamente.')
+    } finally {
+      setLoading(false)
     }
-
-    const nuevoAmigo: Amigo = {
-      id: Date.now().toString(),
-      nombre: nombreAmigo.trim(),
-      email: emailAmigo.trim(),
-      fechaAmistad: new Date().toISOString(),
-      estado: 'activo'
-    }
-
-    const usuarioActual = getUsuarioActual()
-    if (usuarioActual) {
-      const amigosActualizados = [...amigos, nuevoAmigo]
-      setAmigos(amigosActualizados)
-      saveAmigos(amigosActualizados, usuarioActual.id)
-    }
-    setNombreAmigo('')
-    setEmailAmigo('')
-    setMostrarFormulario(false)
   }
 
   // Función para eliminar amigo
-  const eliminarAmigo = (id: string) => {
+  const eliminarAmigo = async (id: string) => {
     if (confirm('¿Estás seguro de que quieres eliminar este amigo?')) {
-      const usuarioActual = getUsuarioActual()
-      if (usuarioActual) {
-        const amigosActualizados = amigos.filter(amigo => amigo.id !== id)
-        setAmigos(amigosActualizados)
-        saveAmigos(amigosActualizados, usuarioActual.id)
+      try {
+        await deleteAmigo(id)
+        setAmigos(amigos.filter(amigo => amigo.id !== id))
+      } catch (err: any) {
+        console.error('Error al eliminar amigo:', err)
+        alert(err.message || 'Error al eliminar el amigo. Por favor, intenta nuevamente.')
       }
     }
   }
 
   // Función para cambiar estado de amigo
-  const cambiarEstado = (id: string, nuevoEstado: Amigo['estado']) => {
-    const usuarioActual = getUsuarioActual()
-    if (usuarioActual) {
-      const amigosActualizados = amigos.map(amigo =>
-        amigo.id === id ? { ...amigo, estado: nuevoEstado } : amigo
-      )
-      setAmigos(amigosActualizados)
-      saveAmigos(amigosActualizados, usuarioActual.id)
+  const cambiarEstado = async (id: string, nuevoEstado: Amigo['estado']) => {
+    try {
+      const amigoActualizado = await updateEstadoAmigo(id, nuevoEstado)
+      setAmigos(amigos.map(amigo =>
+        amigo.id === id ? amigoActualizado : amigo
+      ))
+    } catch (err: any) {
+      console.error('Error al actualizar estado:', err)
+      alert(err.message || 'Error al actualizar el estado. Por favor, intenta nuevamente.')
     }
   }
 
@@ -270,8 +237,9 @@ export default function AmigosPage() {
               <button
                 onClick={agregarAmigo}
                 className="btn btn-primary"
+                disabled={loading}
               >
-                Agregar Amigo
+                {loading ? 'Agregando...' : 'Agregar Amigo'}
               </button>
             </div>
           </div>
@@ -322,7 +290,22 @@ export default function AmigosPage() {
 
         {/* Lista de amigos */}
         <div className="amigos-lista">
-          {amigosFiltrados.length === 0 ? (
+          {loadingAmigos ? (
+            <div className="amigos-empty">
+              <p>Cargando amigos...</p>
+            </div>
+          ) : error ? (
+            <div className="amigos-empty">
+              <p style={{ color: 'red' }}>Error: {error}</p>
+              <button 
+                onClick={loadAmigos}
+                className="btn btn-primary"
+                style={{ marginTop: '10px' }}
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : amigosFiltrados.length === 0 ? (
             <div className="amigos-empty">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>

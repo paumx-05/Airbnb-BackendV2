@@ -20,6 +20,24 @@ export const API_CONFIG = {
     USERS: {
       PROFILE: '/api/users/profile', // Obtener perfil
       UPDATE_PROFILE: '/api/users/profile', // Actualizar perfil
+    },
+    GASTOS: {
+      GET_BY_MES: (mes: string) => `/api/gastos/${mes}`, // Obtener gastos por mes
+      CREATE: '/api/gastos', // Crear gasto
+      UPDATE: (id: string) => `/api/gastos/${id}`, // Actualizar gasto
+      DELETE: (id: string) => `/api/gastos/${id}`, // Eliminar gasto
+      GET_TOTAL: (mes: string) => `/api/gastos/${mes}/total`, // Obtener total de gastos por mes
+      GET_BY_CATEGORIA: (mes: string, categoria: string) => `/api/gastos/${mes}/categoria/${encodeURIComponent(categoria)}`, // Obtener gastos por categoría
+    },
+    AMIGOS: {
+      GET_ALL: '/api/amigos', // Obtener todos los amigos
+      GET_BY_ID: (id: string) => `/api/amigos/${id}`, // Obtener amigo por ID
+      SEARCH: (query: string) => `/api/amigos/search?q=${encodeURIComponent(query)}`, // Buscar amigos
+      GET_BY_ESTADO: (estado: string) => `/api/amigos/estado/${estado}`, // Obtener amigos por estado
+      CREATE: '/api/amigos', // Crear amigo
+      UPDATE: (id: string) => `/api/amigos/${id}`, // Actualizar amigo
+      UPDATE_ESTADO: (id: string) => `/api/amigos/${id}/estado`, // Actualizar estado de amigo
+      DELETE: (id: string) => `/api/amigos/${id}`, // Eliminar amigo
     }
   },
   

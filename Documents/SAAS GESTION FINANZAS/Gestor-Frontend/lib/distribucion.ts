@@ -35,13 +35,16 @@ export interface PeriodoDistribucion {
 }
 
 // Función para obtener todos los gastos de un año
-function getAllGastosAnuales(año: number, userId?: string): Gasto[] {
+async function getAllGastosAnuales(año: number, userId?: string): Promise<Gasto[]> {
   const todosGastos: Gasto[] = []
   const usuarioId = userId || (typeof window !== 'undefined' ? getUsuarioActual()?.id : undefined) || 'default'
   
-  meses.forEach(mes => {
-    const gastosMes = getGastos(mes, usuarioId)
-    // Filtrar gastos del año especificado
+  // Usar Promise.all para obtener todos los gastos en paralelo
+  const promesasGastos = meses.map(mes => getGastos(mes, usuarioId))
+  const arraysGastos = await Promise.all(promesasGastos)
+  
+  // Filtrar gastos del año especificado y aplanar
+  arraysGastos.forEach(gastosMes => {
     const gastosAño = gastosMes.filter(gasto => {
       const fecha = new Date(gasto.fecha)
       return fecha.getFullYear() === año
@@ -60,8 +63,8 @@ function getSemanaAño(fecha: Date): number {
 }
 
 // Función para obtener gastos agrupados por semanas
-export function getGastosPorSemanas(año: number, userId?: string): PeriodoDistribucion[] {
-  const gastos = getAllGastosAnuales(año, userId)
+export async function getGastosPorSemanas(año: number, userId?: string): Promise<PeriodoDistribucion[]> {
+  const gastos = await getAllGastosAnuales(año, userId)
   const semanas: { [semana: number]: Gasto[] } = {}
   
   gastos.forEach(gasto => {
@@ -89,12 +92,17 @@ export function getGastosPorSemanas(año: number, userId?: string): PeriodoDistr
 }
 
 // Función para obtener gastos agrupados por meses
-export function getGastosPorMeses(año: number, userId?: string): PeriodoDistribucion[] {
+export async function getGastosPorMeses(año: number, userId?: string): Promise<PeriodoDistribucion[]> {
   const distribucion: PeriodoDistribucion[] = []
   const usuarioId = userId || (typeof window !== 'undefined' ? getUsuarioActual()?.id : undefined) || 'default'
   
+  // Obtener todos los gastos en paralelo
+  const promesasGastos = meses.map(mes => getGastos(mes, usuarioId))
+  const arraysGastos = await Promise.all(promesasGastos)
+  
+  // Procesar cada mes
   meses.forEach((mes, index) => {
-    const gastosMes = getGastos(mes, usuarioId)
+    const gastosMes = arraysGastos[index]
     // Filtrar gastos del año especificado
     const gastosAño = gastosMes.filter(gasto => {
       const fecha = new Date(gasto.fecha)
@@ -113,7 +121,7 @@ export function getGastosPorMeses(año: number, userId?: string): PeriodoDistrib
 }
 
 // Función para obtener gastos agrupados por trimestres
-export function getGastosPorTrimestres(año: number, userId?: string): PeriodoDistribucion[] {
+export async function getGastosPorTrimestres(año: number, userId?: string): Promise<PeriodoDistribucion[]> {
   const trimestres: { [trimestre: number]: Gasto[] } = {
     1: [], // Ene-Mar
     2: [], // Abr-Jun
@@ -122,9 +130,13 @@ export function getGastosPorTrimestres(año: number, userId?: string): PeriodoDi
   }
   const usuarioId = userId || (typeof window !== 'undefined' ? getUsuarioActual()?.id : undefined) || 'default'
   
+  // Obtener todos los gastos en paralelo
+  const promesasGastos = meses.map(mes => getGastos(mes, usuarioId))
+  const arraysGastos = await Promise.all(promesasGastos)
+  
   meses.forEach((mes, index) => {
     const trimestre = Math.floor(index / 3) + 1
-    const gastosMes = getGastos(mes, usuarioId)
+    const gastosMes = arraysGastos[index]
     
     const gastosAño = gastosMes.filter(gasto => {
       const fecha = new Date(gasto.fecha)
@@ -150,7 +162,7 @@ export function getGastosPorTrimestres(año: number, userId?: string): PeriodoDi
 }
 
 // Función para obtener gastos agrupados por cuatrimestres
-export function getGastosPorCuatrimestres(año: number, userId?: string): PeriodoDistribucion[] {
+export async function getGastosPorCuatrimestres(año: number, userId?: string): Promise<PeriodoDistribucion[]> {
   const cuatrimestres: { [cuatrimestre: number]: Gasto[] } = {
     1: [], // Ene-Abr
     2: [], // May-Ago
@@ -158,9 +170,13 @@ export function getGastosPorCuatrimestres(año: number, userId?: string): Period
   }
   const usuarioId = userId || (typeof window !== 'undefined' ? getUsuarioActual()?.id : undefined) || 'default'
   
+  // Obtener todos los gastos en paralelo
+  const promesasGastos = meses.map(mes => getGastos(mes, usuarioId))
+  const arraysGastos = await Promise.all(promesasGastos)
+  
   meses.forEach((mes, index) => {
     const cuatrimestre = Math.floor(index / 4) + 1
-    const gastosMes = getGastos(mes, usuarioId)
+    const gastosMes = arraysGastos[index]
     
     const gastosAño = gastosMes.filter(gasto => {
       const fecha = new Date(gasto.fecha)
@@ -185,8 +201,8 @@ export function getGastosPorCuatrimestres(año: number, userId?: string): Period
 }
 
 // Función para obtener gastos anuales
-export function getGastosAnuales(año: number, userId?: string): PeriodoDistribucion {
-  const gastos = getAllGastosAnuales(año, userId)
+export async function getGastosAnuales(año: number, userId?: string): Promise<PeriodoDistribucion> {
+  const gastos = await getAllGastosAnuales(año, userId)
   
   return {
     nombre: `Año ${año}`,
@@ -206,12 +222,14 @@ export interface DistribucionCategoria {
 }
 
 // Función para obtener distribución mensual por categorías (incluyendo ingresos y gastos)
-export function getDistribucionMensualPorCategorias(mes: string, userId?: string): DistribucionCategoria[] {
+export async function getDistribucionMensualPorCategorias(mes: string, userId?: string): Promise<DistribucionCategoria[]> {
   const usuarioId = userId || (typeof window !== 'undefined' ? getUsuarioActual()?.id : undefined) || 'default'
-  const resumenGastos = getResumenPorCategorias(mes, usuarioId)
-  const resumenIngresos = getResumenIngresosPorCategorias(mes, usuarioId)
-  const gastos = getGastos(mes, usuarioId)
-  const ingresos = getIngresos(mes, usuarioId)
+  const [resumenGastos, resumenIngresos, gastos, ingresos] = await Promise.all([
+    getResumenPorCategorias(mes, usuarioId),
+    Promise.resolve(getResumenIngresosPorCategorias(mes, usuarioId)), // getResumenIngresosPorCategorias no es async
+    getGastos(mes, usuarioId),
+    Promise.resolve(getIngresos(mes, usuarioId)) // getIngresos no es async
+  ])
   
   // Calcular totales
   const totalIngresos = ingresos.reduce((sum, i) => sum + i.monto, 0)
@@ -270,10 +288,10 @@ export interface ResumenMensual {
   porcentajeGastos: number // % de ingresos que se gasta
 }
 
-export function getResumenMensual(mes: string, userId?: string): ResumenMensual {
+export async function getResumenMensual(mes: string, userId?: string): Promise<ResumenMensual> {
   const usuarioId = userId || (typeof window !== 'undefined' ? getUsuarioActual()?.id : undefined) || 'default'
-  const ingresos = getIngresos(mes, usuarioId)
-  const gastos = getGastos(mes, usuarioId)
+  const ingresos = getIngresos(mes, usuarioId) // getIngresos no es async
+  const gastos = await getGastos(mes, usuarioId)
   
   const totalIngresos = ingresos.reduce((sum, i) => sum + i.monto, 0)
   const totalGastos = gastos.reduce((sum, g) => sum + g.monto, 0)

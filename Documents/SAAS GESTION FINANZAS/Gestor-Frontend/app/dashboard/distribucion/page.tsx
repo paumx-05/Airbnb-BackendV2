@@ -82,15 +82,19 @@ export default function DistribucionPage() {
   }, [totalIngresos, mesSeleccionado])
 
   // Función para cargar datos
-  const loadData = () => {
+  const loadData = async () => {
     const usuarioActual = getUsuarioActual()
     if (usuarioActual) {
-      const ingresos = getTotalIngresos(mesSeleccionado, usuarioActual.id)
-      const resumenData = getResumenMensual(mesSeleccionado, usuarioActual.id)
-      
-      setTotalIngresos(ingresos)
-      setResumen(resumenData)
-      loadPresupuestos()
+      try {
+        const ingresos = getTotalIngresos(mesSeleccionado, usuarioActual.id)
+        const resumenData = await getResumenMensual(mesSeleccionado, usuarioActual.id)
+        
+        setTotalIngresos(ingresos)
+        setResumen(resumenData)
+        loadPresupuestos()
+      } catch (error) {
+        console.error('Error al cargar datos:', error)
+      }
     }
   }
 

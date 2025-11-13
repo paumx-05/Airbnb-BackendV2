@@ -8,9 +8,10 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import { getAuth, getUsuarioActual } from '@/lib/auth'
-import { getGastos, addGasto, deleteGasto, getTotalGastos, type Gasto } from '@/lib/gastos'
+import { getGastos, addGasto, deleteGasto, getTotalGastos, updateGasto, type Gasto } from '@/lib/gastos'
 import { getNombresCategoriasPorTipo } from '@/lib/categorias'
 import { getPresupuestoPorCategoria } from '@/lib/presupuestos'
+import { getAmigos } from '@/lib/amigos'
 
 // Mapeo de valores de mes a nombres completos
 const mesesNombres: { [key: string]: string } = {
@@ -52,6 +53,11 @@ export default function GastosMesPage() {
   // Estado para la lista de gastos
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [total, setTotal] = useState(0)
+  const [loadingGastos, setLoadingGastos] = useState(false)
+  const [errorGastos, setErrorGastos] = useState<string | null>(null)
+  
+  // Estado para edición de gasto
+  const [gastoEditando, setGastoEditando] = useState<string | null>(null)
 
   // Verificar autenticación al cargar
   useEffect(() => {
@@ -69,91 +75,23 @@ export default function GastosMesPage() {
     if (mes) {
       loadGastos()
       loadCategorias()
-      loadAmigos()
+      // loadAmigos es async, se ejecuta en paralelo
+      loadAmigos().catch(err => console.error('Error al cargar amigos:', err))
     }
   }, [mes, searchParams])
   
-  // Función para cargar amigos
-  const loadAmigos = () => {
-    if (typeof window !== 'undefined') {
-      const usuarioActual = getUsuarioActual()
-      if (!usuarioActual) return
-      
-      const AMIGOS_KEY = `gestor-finanzas-amigos-${usuarioActual.id}`
-      const amigosData = localStorage.getItem(AMIGOS_KEY)
-      let amigosList: any[] = []
-      
-      if (amigosData) {
-        try {
-          amigosList = JSON.parse(amigosData)
-        } catch (e) {
-          amigosList = []
-        }
-      }
-      
-      // Verificar si necesita corrección
-      let necesitaCorreccion = false
-      let amigosMock: any[] = []
-      
-      // Usuario principal debe tener los 3 amigos mock
-      if (usuarioActual.id === 'user-main') {
-        const amigosEsperados = ['mock-1', 'mock-2', 'mock-3']
-        const tieneTodosLosAmigos = amigosEsperados.every(id => 
-          amigosList.some((a: any) => a.id === id)
-        )
-        if (amigosList.length === 0 || !tieneTodosLosAmigos || amigosList.length !== 3) {
-          necesitaCorreccion = true
-          amigosMock = [
-            {
-              id: 'mock-1',
-              nombre: 'Juan Pérez',
-              email: 'juan.perez@example.com',
-              fechaAmistad: new Date().toISOString(),
-              estado: 'activo'
-            },
-            {
-              id: 'mock-2',
-              nombre: 'María García',
-              email: 'maria.garcia@example.com',
-              fechaAmistad: new Date().toISOString(),
-              estado: 'activo'
-            },
-            {
-              id: 'mock-3',
-              nombre: 'Carlos López',
-              email: 'carlos.lopez@example.com',
-              fechaAmistad: new Date().toISOString(),
-              estado: 'activo'
-            }
-          ]
-        }
-      } 
-      // Juan Pérez (y otros usuarios) solo deben tener al usuario principal
-      else {
-        const tieneUsuarioPrincipal = amigosList.some((a: any) => a.id === 'user-main')
-        const tieneASiMismo = amigosList.some((a: any) => a.id === usuarioActual.id)
-        if (amigosList.length === 0 || !tieneUsuarioPrincipal || tieneASiMismo || amigosList.length !== 1) {
-          necesitaCorreccion = true
-          amigosMock = [
-            {
-              id: 'user-main',
-              nombre: 'Usuario Principal',
-              email: 'gestion@gmail.com',
-              fechaAmistad: new Date().toISOString(),
-              estado: 'activo'
-            }
-          ]
-        }
-      }
-      
-      // Si necesita corrección, guardar los amigos correctos
-      if (necesitaCorreccion) {
-        localStorage.setItem(AMIGOS_KEY, JSON.stringify(amigosMock))
-        amigosList = amigosMock
-      }
-      
-      // Mostrar todos los amigos, no solo los activos
-      setAmigos(amigosList.map((a: any) => ({ id: a.id, nombre: a.nombre, email: a.email })))
+  // Función para cargar amigos desde el backend
+  const loadAmigos = async () => {
+    try {
+      const amigosList = await getAmigos()
+      // Filtrar solo amigos activos para dividir gastos
+      const amigosActivos = amigosList
+        .filter(amigo => amigo.estado === 'activo')
+        .map(amigo => ({ id: amigo.id, nombre: amigo.nombre, email: amigo.email }))
+      setAmigos(amigosActivos)
+    } catch (error) {
+      console.error('Error al cargar amigos:', error)
+      setAmigos([])
     }
   }
   
@@ -279,11 +217,22 @@ export default function GastosMesPage() {
     return () => clearTimeout(timer)
   }, [mes])
 
-  // Función para cargar gastos del mes
-  const loadGastos = () => {
+  // Función para cargar gastos del mes desde el backend
+  const loadGastos = async () => {
     const usuarioActual = getUsuarioActual()
-    if (usuarioActual) {
-      const gastosMes = getGastos(mes, usuarioActual.id)
+    if (!usuarioActual) {
+      console.log('[PAGE GASTOS] No hay usuario actual, no se pueden cargar gastos')
+      return
+    }
+    
+    console.log('[PAGE GASTOS] Cargando gastos para mes:', mes)
+    setLoadingGastos(true)
+    setErrorGastos(null)
+    
+    try {
+      const gastosMes = await getGastos(mes, usuarioActual.id)
+      console.log('[PAGE GASTOS] Gastos recibidos:', gastosMes.length, gastosMes)
+      
       // Ordenar gastos por fecha ascendente (más antiguos primero, más recientes abajo)
       const gastosOrdenados = [...gastosMes].sort((a, b) => {
         const fechaA = new Date(a.fecha).getTime()
@@ -291,9 +240,21 @@ export default function GastosMesPage() {
         // Orden ascendente: fechas más antiguas primero
         return fechaA - fechaB
       })
-      const totalMes = getTotalGastos(mes, usuarioActual.id)
+      console.log('[PAGE GASTOS] Gastos ordenados:', gastosOrdenados.length, gastosOrdenados)
+      
+      const totalMes = await getTotalGastos(mes, usuarioActual.id)
+      console.log('[PAGE GASTOS] Total del mes:', totalMes)
+      
       setGastos(gastosOrdenados)
       setTotal(totalMes)
+      console.log('[PAGE GASTOS] Estado actualizado - gastos:', gastosOrdenados.length, 'total:', totalMes)
+    } catch (error: any) {
+      console.error('[PAGE GASTOS] Error al cargar gastos:', error)
+      setErrorGastos(error.message || 'Error al cargar los gastos')
+      setGastos([])
+      setTotal(0)
+    } finally {
+      setLoadingGastos(false)
     }
   }
 
@@ -386,20 +347,93 @@ export default function GastosMesPage() {
       }
     }
     
-    // Agregar el gasto con solo la parte del usuario
     const usuarioActual = getUsuarioActual()
     if (usuarioActual) {
-      addGasto(mes, {
-        descripcion: descripcion.trim(),
-        monto: montoUsuario, // Solo la parte del usuario
-        fecha: fecha,
-        mes: mes,
-        categoria: categoria || 'Otros',
-        dividido: informacionDividida
-      }, usuarioActual.id)
+      try {
+        if (gastoEditando) {
+          // Modo edición: actualizar gasto existente
+          await updateGasto(gastoEditando, {
+            descripcion: descripcion.trim(),
+            monto: montoUsuario,
+            fecha: fecha,
+            categoria: categoria || 'Otros',
+            dividido: informacionDividida
+          })
+        } else {
+          // Modo creación: crear nuevo gasto
+          await addGasto(mes, {
+            descripcion: descripcion.trim(),
+            monto: montoUsuario, // Solo la parte del usuario
+            fecha: fecha,
+            mes: mes,
+            categoria: categoria || 'Otros',
+            dividido: informacionDividida
+          }, usuarioActual.id)
+        }
+
+        // Limpiar formulario
+        handleCancelEdit()
+
+        // Esperar un momento para que el backend procese
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // Recargar gastos
+        await loadGastos()
+      } catch (error: any) {
+        console.error(`Error al ${gastoEditando ? 'actualizar' : 'crear'} gasto:`, error)
+        alert(error.message || `Error al ${gastoEditando ? 'actualizar' : 'crear'} el gasto. Por favor, intenta nuevamente.`)
+      }
     }
 
-    // Limpiar formulario
+    setLoading(false)
+  }
+
+  // Función para iniciar edición de un gasto
+  const handleEdit = (gasto: Gasto) => {
+    setGastoEditando(gasto.id)
+    setDescripcion(gasto.descripcion)
+    setMonto(gasto.monto.toString())
+    // Convertir fecha ISO a formato YYYY-MM-DD para el input date
+    const fechaDate = new Date(gasto.fecha)
+    const fechaFormateada = fechaDate.toISOString().split('T')[0]
+    setFecha(fechaFormateada)
+    setCategoria(gasto.categoria)
+    
+    // Si el gasto tiene división, cargar esa información
+    if (gasto.dividido && gasto.dividido.length > 0) {
+      setDividirGasto(true)
+      const amigosIds = gasto.dividido.map(item => item.amigoId)
+      setAmigosSeleccionados(amigosIds)
+      
+      const pagados: Record<string, boolean> = {}
+      const montos: Record<string, string> = {}
+      gasto.dividido.forEach(item => {
+        pagados[item.amigoId] = item.pagado
+        montos[item.amigoId] = item.montoDividido.toString()
+      })
+      setAmigosPagados(pagados)
+      setMontosPersonalizados(montos)
+      setModoDivision('personalizado') // Por defecto personalizado si ya tiene división
+    } else {
+      setDividirGasto(false)
+      setAmigosSeleccionados([])
+      setAmigosPagados({})
+      setMontosPersonalizados({})
+      setModoDivision('iguales')
+    }
+    
+    // Scroll al formulario
+    setTimeout(() => {
+      const formCard = document.querySelector('.gastos-form-card')
+      if (formCard) {
+        formCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 100)
+  }
+
+  // Función para cancelar edición
+  const handleCancelEdit = () => {
+    setGastoEditando(null)
     setDescripcion('')
     setMonto('')
     setFecha('')
@@ -409,19 +443,20 @@ export default function GastosMesPage() {
     setAmigosSeleccionados([])
     setAmigosPagados({})
     setMontosPersonalizados({})
-
-    // Recargar gastos
-    loadGastos()
-    setLoading(false)
   }
 
   // Función para eliminar un gasto
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('¿Estás seguro de que quieres eliminar este gasto?')) {
       const usuarioActual = getUsuarioActual()
       if (usuarioActual) {
-        deleteGasto(mes, id, usuarioActual.id)
-        loadGastos()
+        try {
+          await deleteGasto(mes, id, usuarioActual.id)
+          await loadGastos()
+        } catch (error: any) {
+          console.error('Error al eliminar gasto:', error)
+          alert(error.message || 'Error al eliminar el gasto. Por favor, intenta nuevamente.')
+        }
       }
     }
   }
@@ -513,9 +548,31 @@ export default function GastosMesPage() {
 
         {/* Layout horizontal: Formulario y Lista lado a lado */}
         <div className="gastos-content-grid">
-          {/* Formulario para agregar gastos - lado izquierdo */}
+          {/* Formulario para agregar/editar gastos - lado izquierdo */}
           <div className="gastos-form-card">
-            <h2 className="gastos-form-title">Agregar Nuevo Gasto</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 className="gastos-form-title">
+                {gastoEditando ? 'Editar Gasto' : 'Agregar Nuevo Gasto'}
+              </h2>
+              {gastoEditando && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="btn"
+                  style={{ 
+                    padding: '8px 16px',
+                    fontSize: '0.9em',
+                    backgroundColor: '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
             <form className="gastos-form" onSubmit={handleSubmit}>
               <div className="form-group">
                 <label htmlFor="descripcion" className="form-label">Descripción</label>
@@ -768,7 +825,7 @@ export default function GastosMesPage() {
                 className="btn btn-primary btn-full"
                 disabled={loading}
               >
-                {loading ? 'Guardando...' : 'Agregar Gasto'}
+                {loading ? 'Guardando...' : gastoEditando ? 'Actualizar Gasto' : 'Agregar Gasto'}
               </button>
             </form>
           </div>
@@ -779,7 +836,24 @@ export default function GastosMesPage() {
             Gastos Registrados ({gastos.length})
           </h2>
           
-          {gastos.length > 0 ? (
+          {loadingGastos ? (
+            <div className="gastos-list">
+              <p className="gastos-empty">Cargando gastos...</p>
+            </div>
+          ) : errorGastos ? (
+            <div className="gastos-list">
+              <p className="gastos-empty" style={{ color: 'red' }}>
+                Error: {errorGastos}
+              </p>
+              <button 
+                onClick={loadGastos}
+                className="btn btn-primary"
+                style={{ marginTop: '10px' }}
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : gastos.length > 0 ? (
             <>
               <div className="gastos-list">
                 {gastos.map((gasto, index) => {
@@ -797,6 +871,31 @@ export default function GastosMesPage() {
                         </div>
                         <p className="gasto-item-fecha">{formatFecha(gasto.fecha)}</p>
                         
+                        {/* Información de división del gasto */}
+                        {gasto.dividido && gasto.dividido.length > 0 && (
+                          <div className="gasto-dividido-info" style={{ 
+                            marginTop: '8px', 
+                            padding: '8px', 
+                            backgroundColor: '#f5f5f5', 
+                            borderRadius: '4px',
+                            fontSize: '0.9em'
+                          }}>
+                            <p style={{ margin: '0 0 4px 0', fontWeight: '500', color: '#666' }}>
+                              Dividido entre:
+                            </p>
+                            <ul style={{ margin: '0', paddingLeft: '20px', listStyle: 'disc' }}>
+                              {gasto.dividido.map((item, idx) => (
+                                <li key={idx} style={{ marginBottom: '2px' }}>
+                                  <span>{item.amigoNombre}: {formatMonto(item.montoDividido)}</span>
+                                  <span style={{ marginLeft: '8px', color: item.pagado ? '#28a745' : '#ffc107' }}>
+                                    {item.pagado ? '✓ Pagado' : '⏳ Pendiente'}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
                         {/* Información del saldo disponible debajo de cada gasto */}
                         {saldoInfo && (
                           <div className={`gasto-saldo-info ${saldoInfo.excedido ? 'gasto-saldo-excedido' : ''}`}>
@@ -812,13 +911,36 @@ export default function GastosMesPage() {
                           </div>
                         )}
                       </div>
-                      <button
-                        onClick={() => handleDelete(gasto.id)}
-                        className="gasto-item-delete"
-                        title="Eliminar gasto"
-                      >
-                        🗑️
-                      </button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={() => handleEdit(gasto)}
+                          className="gasto-item-edit"
+                          title="Editar gasto"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '1.2em',
+                            padding: '4px 8px'
+                          }}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => handleDelete(gasto.id)}
+                          className="gasto-item-delete"
+                          title="Eliminar gasto"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '1.2em',
+                            padding: '4px 8px'
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
                   )
                 })}

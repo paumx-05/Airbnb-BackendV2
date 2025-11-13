@@ -104,29 +104,30 @@ export default function DashboardPage() {
   }, [router])
 
   // Función para cargar todos los datos del dashboard
-  const loadDashboardData = () => {
+  const loadDashboardData = async () => {
     const usuarioActual = getUsuarioActual()
     if (!usuarioActual) return
     
-    // Resumen del mes actual
-    const resumenActualData = getResumenMensual(mesActual, usuarioActual.id)
-    setResumenActual(resumenActualData)
+    try {
+      // Resumen del mes actual
+      const resumenActualData = await getResumenMensual(mesActual, usuarioActual.id)
+      setResumenActual(resumenActualData)
 
-    // Resumen del mes anterior
-    const resumenAnteriorData = getResumenMensual(mesAnterior, usuarioActual.id)
-    setResumenAnterior(resumenAnteriorData)
+      // Resumen del mes anterior
+      const resumenAnteriorData = await getResumenMensual(mesAnterior, usuarioActual.id)
+      setResumenAnterior(resumenAnteriorData)
 
-    // Gastos recientes (últimos 5 ordenados por fecha descendente)
-    const gastos = getGastos(mesActual, usuarioActual.id)
-    const gastosOrdenados = [...gastos].sort((a, b) => {
-      const fechaA = new Date(a.fecha).getTime()
-      const fechaB = new Date(b.fecha).getTime()
-      return fechaB - fechaA // Más recientes primero
-    })
-    setGastosRecientes(gastosOrdenados.slice(0, 7))
+      // Gastos recientes (últimos 5 ordenados por fecha descendente)
+      const gastos = await getGastos(mesActual, usuarioActual.id)
+      const gastosOrdenados = [...gastos].sort((a, b) => {
+        const fechaA = new Date(a.fecha).getTime()
+        const fechaB = new Date(b.fecha).getTime()
+        return fechaB - fechaA // Más recientes primero
+      })
+      setGastosRecientes(gastosOrdenados.slice(0, 7))
 
-    // Gastos por categorías para el pie chart (todas las categorías con gastos)
-    const resumenCategorias = getResumenPorCategorias(mesActual, usuarioActual.id)
+      // Gastos por categorías para el pie chart (todas las categorías con gastos)
+      const resumenCategorias = await getResumenPorCategorias(mesActual, usuarioActual.id)
     const totalGastos = resumenActualData.totalGastos
     
     // Convertir el resumen en array, filtrar solo categorías con gastos > 0, y ordenar por monto descendente
@@ -140,16 +141,19 @@ export default function DashboardPage() {
       .sort((a, b) => b.monto - a.monto) // Ordenar por monto descendente
       // No limitar a top 3, mostrar todas las categorías con gastos
     
-    setGastosPorCategoria(categoriasArray)
+      setGastosPorCategoria(categoriasArray)
 
-    // Presupuestos
-    const presupuestosData = getPresupuestos(mesActual, usuarioActual.id)
-    setPresupuestos(presupuestosData)
-    const totalPresupuestoData = getTotalPresupuestos(mesActual, usuarioActual.id)
-    setTotalPresupuesto(totalPresupuestoData)
+      // Presupuestos
+      const presupuestosData = getPresupuestos(mesActual, usuarioActual.id)
+      setPresupuestos(presupuestosData)
+      const totalPresupuestoData = getTotalPresupuestos(mesActual, usuarioActual.id)
+      setTotalPresupuesto(totalPresupuestoData)
 
-    // Generar alertas
-    generarAlertas(resumenActualData, presupuestosData, gastos)
+      // Generar alertas
+      generarAlertas(resumenActualData, presupuestosData, gastos)
+    } catch (error) {
+      console.error('Error al cargar datos del dashboard:', error)
+    }
   }
 
   // Función para generar alertas financieras
