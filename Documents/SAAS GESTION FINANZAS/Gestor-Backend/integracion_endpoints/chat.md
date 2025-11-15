@@ -135,14 +135,39 @@ app.use('/api/chat', chatRoutes);
 
 ## ✅ Checklist de Verificación
 
-- [ ] Controlador creado con todas las funciones
-- [ ] Rutas creadas y protegidas con `authenticate`
-- [ ] Validaciones implementadas (amigoId válido)
-- [ ] Verificar que usuarios solo accedan a sus propios chats
-- [ ] Mensajes del sistema funcionando
-- [ ] Lista de chats con último mensaje funcionando
-- [ ] Rutas registradas en `server.ts`
+- [x] Controlador creado con todas las funciones
+- [x] Rutas creadas y protegidas con `authenticate`
+- [x] Validaciones implementadas (amigoId válido)
+- [x] Verificar que usuarios solo accedan a sus propios chats
+- [x] Mensajes del sistema funcionando
+- [x] Lista de chats con último mensaje funcionando
+- [x] Rutas registradas en `server.ts`
 - [ ] Testing completo
-- [ ] Documentación de endpoints completa
+- [x] Documentación de endpoints completa
+
+---
+
+## ✅ Estado de Implementación
+
+**Estado:** ✅ **COMPLETADO**
+
+**Archivos creados:**
+- `src/controllers/chat.controller.ts` - Controlador con todas las funciones
+- `src/routes/chat.routes.ts` - Rutas de chat
+
+**Archivos modificados:**
+- `src/server.ts` - Rutas de chat integradas
+
+**Endpoints implementados:**
+- ✅ `GET /api/chat/amigos` - Lista de chats con último mensaje
+- ✅ `GET /api/chat/:amigoId/mensajes` - Obtener mensajes de un chat
+- ✅ `POST /api/chat/:amigoId/mensajes` - Enviar mensaje
+- ✅ `PUT /api/chat/:amigoId/leer` - Marcar mensajes como leídos
+
+**Notas de implementación:**
+- El `destinatarioId` se obtiene buscando el usuario por el email del amigo
+- Se valida que no se pueda enviar mensajes a uno mismo
+- Los mensajes se ordenan por fecha ascendente (más antiguos primero)
+- La lista de chats se ordena por fecha del último mensaje (más recientes primero)
 
 

@@ -16,6 +16,9 @@ dotenv.config();
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://pablomaldonado422_db_user:Mbt3ylAXTIBSzhku@cluster0.tgnhplr.mongodb.net/gestor-finanzas?retryWrites=true&w=majority&appName=Cluster0';
 
+// Modo no interactivo: si se pasa --yes o -y como argumento, acepta todo automáticamente
+const MODO_NO_INTERACTIVO = process.argv.includes('--yes') || process.argv.includes('-y');
+
 // Interface para readline
 const rl = readline.createInterface({
   input: process.stdin,
@@ -25,11 +28,20 @@ const rl = readline.createInterface({
 // Función para preguntar confirmación
 const pregunta = (query: string): Promise<string> => {
   return new Promise((resolve) => {
-    rl.question(query, resolve);
+    if (MODO_NO_INTERACTIVO) {
+      console.log(`${query}s (auto-confirmado)`);
+      resolve('s');
+    } else {
+      rl.question(query, resolve);
+    }
   });
 };
 
 const confirmar = async (mensaje: string): Promise<boolean> => {
+  if (MODO_NO_INTERACTIVO) {
+    console.log(`${mensaje} (s/n): s (auto-confirmado)`);
+    return true;
+  }
   const respuesta = await pregunta(`${mensaje} (s/n): `);
   return respuesta.toLowerCase() === 's' || respuesta.toLowerCase() === 'si' || respuesta.toLowerCase() === 'y' || respuesta.toLowerCase() === 'yes';
 };
@@ -362,27 +374,63 @@ const crearAmigos = async (userId: mongoose.Types.ObjectId): Promise<mongoose.Ty
   try {
     console.log('👥 Creando amigos...');
     
+    // Crear usuarios adicionales para usar como amigos
+    const passwordHash = await bcrypt.hash('password123', 10);
+    
+    const usuarioAmigo1 = await User.create({
+      email: 'juan.perez@example.com',
+      password: passwordHash,
+      nombre: 'Juan Pérez',
+      descripcion: 'Amigo de prueba',
+      role: 'regular'
+    });
+    
+    const usuarioAmigo2 = await User.create({
+      email: 'maria.garcia@example.com',
+      password: passwordHash,
+      nombre: 'María García',
+      descripcion: 'Amiga de prueba',
+      role: 'regular'
+    });
+    
+    const usuarioAmigo3 = await User.create({
+      email: 'carlos.lopez@example.com',
+      password: passwordHash,
+      nombre: 'Carlos López',
+      descripcion: 'Amigo de prueba',
+      role: 'regular'
+    });
+    
+    // Crear relaciones de amistad con los nuevos campos
     const amigos = [
       {
         userId,
-        nombre: 'Juan Pérez',
-        email: 'juan.perez@example.com',
+        amigoUserId: usuarioAmigo1._id,
+        nombre: usuarioAmigo1.nombre,
+        email: usuarioAmigo1.email,
+        avatar: usuarioAmigo1.avatar,
         estado: 'activo' as const,
+        solicitadoPor: userId,
         fechaAmistad: new Date()
       },
       {
         userId,
-        nombre: 'María García',
-        email: 'maria.garcia@example.com',
+        amigoUserId: usuarioAmigo2._id,
+        nombre: usuarioAmigo2.nombre,
+        email: usuarioAmigo2.email,
+        avatar: usuarioAmigo2.avatar,
         estado: 'activo' as const,
+        solicitadoPor: userId,
         fechaAmistad: new Date()
       },
       {
         userId,
-        nombre: 'Carlos López',
-        email: 'carlos.lopez@example.com',
+        amigoUserId: usuarioAmigo3._id,
+        nombre: usuarioAmigo3.nombre,
+        email: usuarioAmigo3.email,
+        avatar: usuarioAmigo3.avatar,
         estado: 'pendiente' as const,
-        fechaAmistad: new Date()
+        solicitadoPor: userId
       }
     ];
     

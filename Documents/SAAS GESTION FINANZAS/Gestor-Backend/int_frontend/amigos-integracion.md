@@ -1,7 +1,20 @@
 # Integración Frontend: Endpoints de Amigos
 
 ## Objetivo
-Este documento describe cómo integrar los endpoints de amigos del backend con el frontend, incluyendo todos los endpoints, formatos de datos, ejemplos de implementación y funciones helper.
+Este documento describe cómo integrar los endpoints de amigos del backend con el frontend, incluyendo el sistema completo de solicitudes de amistad, formatos de datos, ejemplos de implementación y funciones helper.
+
+---
+
+## 🎯 Flujo del Sistema de Amistad
+
+El sistema ahora funciona con solicitudes de amistad:
+
+1. **Buscar usuarios** → Buscar usuarios del sistema (no solo amigos)
+2. **Enviar solicitud** → Enviar solicitud de amistad a otro usuario
+3. **Ver solicitudes** → El otro usuario ve las solicitudes recibidas
+4. **Aceptar/Rechazar** → El otro usuario acepta o rechaza la solicitud
+5. **Amistad mutua** → Ambos usuarios se tienen mutuamente como amigos activos
+6. **Chatear** → Solo entonces pueden enviarse mensajes
 
 ---
 
@@ -20,12 +33,14 @@ Authorization: Bearer <token>
 
 ## 📋 Endpoints de Amigos
 
-### 1. Obtener Todos los Amigos
+### 1. Obtener Todos los Amigos (Solo Activos)
 
 **Endpoint:**
 ```
 GET /api/amigos
 ```
+
+**Descripción:** Obtiene solo los amigos con estado 'activo' (amigos mutuos). Los amigos pendientes o rechazados no aparecen aquí.
 
 **Headers:**
 ```
@@ -40,6 +55,7 @@ Authorization: Bearer <token>
     {
       "_id": "507f1f77bcf86cd799439011",
       "userId": "507f1f77bcf86cd799439012",
+      "amigoUserId": "507f1f77bcf86cd799439013",
       "nombre": "Juan Pérez",
       "email": "juan.perez@example.com",
       "avatar": "https://example.com/avatar.jpg",
@@ -51,7 +67,9 @@ Authorization: Bearer <token>
 }
 ```
 
-**Ejemplo de implementación (TypeScript/JavaScript):**
+**Nota importante:** Este endpoint solo devuelve amigos con estado 'activo'. Para ver solicitudes pendientes, usa `GET /api/amigos/solicitudes`.
+
+**Ejemplo de implementación:**
 ```typescript
 const getAmigos = async (): Promise<Amigo[]> => {
   const token = localStorage.getItem('token');
@@ -75,7 +93,338 @@ const getAmigos = async (): Promise<Amigo[]> => {
 
 ---
 
-### 2. Obtener Amigo por ID
+### 2. Buscar Usuarios del Sistema (NUEVO)
+
+**Endpoint:**
+```
+GET /api/amigos/usuarios/search?q=<query>
+```
+
+**Descripción:** Busca usuarios del sistema (no solo tus amigos). Muestra el estado de amistad con cada usuario encontrado.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `q` (string, requerido): Término de búsqueda (nombre o email)
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "507f1f77bcf86cd799439013",
+      "nombre": "Juan Pérez",
+      "email": "juan.perez@example.com",
+      "avatar": "https://example.com/avatar.jpg",
+      "estadoAmistad": "activo",
+      "esAmigo": true
+    },
+    {
+      "_id": "507f1f77bcf86cd799439014",
+      "nombre": "María García",
+      "email": "maria.garcia@example.com",
+      "avatar": "https://example.com/avatar2.jpg",
+      "estadoAmistad": "pendiente",
+      "esAmigo": false
+    },
+    {
+      "_id": "507f1f77bcf86cd799439015",
+      "nombre": "Carlos López",
+      "email": "carlos.lopez@example.com",
+      "avatar": null,
+      "estadoAmistad": null,
+      "esAmigo": false
+    }
+  ]
+}
+```
+
+**Campos de respuesta:**
+- `estadoAmistad`: `'pendiente' | 'activo' | 'rechazada' | 'bloqueado' | null` - Estado de la relación de amistad
+- `esAmigo`: `boolean` - `true` si el estado es 'activo'
+
+**Ejemplo de implementación:**
+```typescript
+const searchUsuarios = async (query: string): Promise<UsuarioConEstado[]> => {
+  const token = localStorage.getItem('token');
+  
+  const response = await fetch(
+    `http://localhost:4444/api/amigos/usuarios/search?q=${encodeURIComponent(query)}`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Error al buscar usuarios');
+  }
+
+  const result = await response.json();
+  return result.data;
+};
+```
+
+---
+
+### 3. Enviar Solicitud de Amistad (NUEVO)
+
+**Endpoint:**
+```
+POST /api/amigos/solicitud
+```
+
+**Descripción:** Envía una solicitud de amistad a otro usuario. Crea un registro con estado 'pendiente'.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "amigoUserId": "507f1f77bcf86cd799439013"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "507f1f77bcf86cd799439011",
+    "userId": "507f1f77bcf86cd799439012",
+    "amigoUserId": "507f1f77bcf86cd799439013",
+    "nombre": "Juan Pérez",
+    "email": "juan.perez@example.com",
+    "avatar": "https://example.com/avatar.jpg",
+    "estado": "pendiente",
+    "solicitadoPor": "507f1f77bcf86cd799439012",
+    "createdAt": "2024-11-15T10:00:00.000Z"
+  },
+  "message": "Solicitud de amistad enviada exitosamente"
+}
+```
+
+**Errores posibles:**
+- `400`: ID inválido o intentando enviar solicitud a uno mismo
+- `404`: Usuario no encontrado
+- `409`: Ya existe una relación con este usuario
+
+**Ejemplo de implementación:**
+```typescript
+const enviarSolicitud = async (amigoUserId: string): Promise<Amigo> => {
+  const token = localStorage.getItem('token');
+  
+  const response = await fetch('http://localhost:4444/api/amigos/solicitud', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ amigoUserId })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    if (response.status === 409) {
+      throw new Error('Ya existe una relación con este usuario');
+    }
+    throw new Error(error.error || 'Error al enviar solicitud');
+  }
+
+  const result = await response.json();
+  return result.data;
+};
+```
+
+---
+
+### 4. Obtener Solicitudes Recibidas (NUEVO)
+
+**Endpoint:**
+```
+GET /api/amigos/solicitudes
+```
+
+**Descripción:** Obtiene todas las solicitudes de amistad recibidas que están pendientes.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "507f1f77bcf86cd799439011",
+      "solicitante": {
+        "_id": "507f1f77bcf86cd799439012",
+        "nombre": "Juan Pérez",
+        "email": "juan.perez@example.com",
+        "avatar": "https://example.com/avatar.jpg"
+      },
+      "estado": "pendiente",
+      "createdAt": "2024-11-15T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+**Ejemplo de implementación:**
+```typescript
+const getSolicitudesRecibidas = async (): Promise<SolicitudAmistad[]> => {
+  const token = localStorage.getItem('token');
+  
+  const response = await fetch('http://localhost:4444/api/amigos/solicitudes', {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error('Error al obtener solicitudes');
+  }
+
+  const result = await response.json();
+  return result.data;
+};
+```
+
+---
+
+### 5. Aceptar Solicitud de Amistad (NUEVO)
+
+**Endpoint:**
+```
+PUT /api/amigos/solicitud/:id/aceptar
+```
+
+**Descripción:** Acepta una solicitud de amistad. Actualiza la solicitud a estado 'activo' y crea automáticamente la relación inversa (ambos usuarios se tienen mutuamente como amigos).
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Path Parameters:**
+- `id` (string, requerido): ID de la solicitud a aceptar
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "507f1f77bcf86cd799439011",
+    "estado": "activo",
+    "fechaAmistad": "2024-11-15T10:00:00.000Z"
+  },
+  "message": "Solicitud de amistad aceptada exitosamente"
+}
+```
+
+**Errores posibles:**
+- `404`: Solicitud no encontrada o ya procesada
+
+**Ejemplo de implementación:**
+```typescript
+const aceptarSolicitud = async (solicitudId: string): Promise<void> => {
+  const token = localStorage.getItem('token');
+  
+  const response = await fetch(
+    `http://localhost:4444/api/amigos/solicitud/${solicitudId}/aceptar`,
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    if (response.status === 404) {
+      throw new Error('Solicitud no encontrada o ya procesada');
+    }
+    throw new Error(error.error || 'Error al aceptar solicitud');
+  }
+};
+```
+
+---
+
+### 6. Rechazar Solicitud de Amistad (NUEVO)
+
+**Endpoint:**
+```
+PUT /api/amigos/solicitud/:id/rechazar
+```
+
+**Descripción:** Rechaza una solicitud de amistad. Actualiza la solicitud a estado 'rechazada'.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Path Parameters:**
+- `id` (string, requerido): ID de la solicitud a rechazar
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Solicitud de amistad rechazada"
+}
+```
+
+**Errores posibles:**
+- `404`: Solicitud no encontrada o ya procesada
+
+**Ejemplo de implementación:**
+```typescript
+const rechazarSolicitud = async (solicitudId: string): Promise<void> => {
+  const token = localStorage.getItem('token');
+  
+  const response = await fetch(
+    `http://localhost:4444/api/amigos/solicitud/${solicitudId}/rechazar`,
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    if (response.status === 404) {
+      throw new Error('Solicitud no encontrada o ya procesada');
+    }
+    throw new Error(error.error || 'Error al rechazar solicitud');
+  }
+};
+```
+
+---
+
+### 7. Obtener Amigo por ID
 
 **Endpoint:**
 ```
@@ -94,10 +443,12 @@ Authorization: Bearer <token>
   "data": {
     "_id": "507f1f77bcf86cd799439011",
     "userId": "507f1f77bcf86cd799439012",
+    "amigoUserId": "507f1f77bcf86cd799439013",
     "nombre": "Juan Pérez",
     "email": "juan.perez@example.com",
     "avatar": "https://example.com/avatar.jpg",
     "estado": "activo",
+    "solicitadoPor": "507f1f77bcf86cd799439012",
     "fechaAmistad": "2024-11-15T10:00:00.000Z",
     "createdAt": "2024-11-15T10:00:00.000Z"
   }
@@ -131,12 +482,14 @@ const getAmigoById = async (id: string): Promise<Amigo> => {
 
 ---
 
-### 3. Buscar Amigos
+### 8. Buscar Amigos (Entre tus amigos)
 
 **Endpoint:**
 ```
 GET /api/amigos/search?q=<query>
 ```
+
+**Descripción:** Busca entre tus amigos existentes (no busca en todos los usuarios del sistema).
 
 **Headers:**
 ```
@@ -153,9 +506,14 @@ Authorization: Bearer <token>
   "data": [
     {
       "_id": "507f1f77bcf86cd799439011",
+      "userId": "507f1f77bcf86cd799439012",
+      "amigoUserId": "507f1f77bcf86cd799439013",
       "nombre": "Juan Pérez",
       "email": "juan.perez@example.com",
-      "estado": "activo"
+      "avatar": "https://example.com/avatar.jpg",
+      "estado": "activo",
+      "fechaAmistad": "2024-11-15T10:00:00.000Z",
+      "createdAt": "2024-11-15T10:00:00.000Z"
     }
   ]
 }
@@ -188,7 +546,7 @@ const searchAmigos = async (query: string): Promise<Amigo[]> => {
 
 ---
 
-### 4. Obtener Amigos por Estado
+### 9. Obtener Amigos por Estado
 
 **Endpoint:**
 ```
@@ -201,7 +559,7 @@ Authorization: Bearer <token>
 ```
 
 **Path Parameters:**
-- `estado` (string, requerido): `'activo' | 'pendiente' | 'bloqueado'`
+- `estado` (string, requerido): `'pendiente' | 'activo' | 'rechazada' | 'bloqueado'`
 
 **Response (200 OK):**
 ```json
@@ -210,9 +568,14 @@ Authorization: Bearer <token>
   "data": [
     {
       "_id": "507f1f77bcf86cd799439011",
+      "userId": "507f1f77bcf86cd799439012",
+      "amigoUserId": "507f1f77bcf86cd799439013",
       "nombre": "Juan Pérez",
       "email": "juan.perez@example.com",
-      "estado": "activo"
+      "avatar": "https://example.com/avatar.jpg",
+      "estado": "pendiente",
+      "solicitadoPor": "507f1f77bcf86cd799439012",
+      "createdAt": "2024-11-15T10:00:00.000Z"
     }
   ]
 }
@@ -220,7 +583,9 @@ Authorization: Bearer <token>
 
 **Ejemplo de implementación:**
 ```typescript
-const getAmigosByEstado = async (estado: 'activo' | 'pendiente' | 'bloqueado'): Promise<Amigo[]> => {
+const getAmigosByEstado = async (
+  estado: 'pendiente' | 'activo' | 'rechazada' | 'bloqueado'
+): Promise<Amigo[]> => {
   const token = localStorage.getItem('token');
   
   const response = await fetch(`http://localhost:4444/api/amigos/estado/${estado}`, {
@@ -242,12 +607,14 @@ const getAmigosByEstado = async (estado: 'activo' | 'pendiente' | 'bloqueado'): 
 
 ---
 
-### 5. Crear Amigo
+### 10. Crear Amigo (DEPRECADO - Usar enviarSolicitud)
 
 **Endpoint:**
 ```
 POST /api/amigos
 ```
+
+**⚠️ NOTA:** Este endpoint está deprecado. Se mantiene por compatibilidad pero ahora crea una solicitud de amistad en lugar de un amigo directo. Se recomienda usar `POST /api/amigos/solicitud` en su lugar.
 
 **Headers:**
 ```
@@ -260,8 +627,8 @@ Content-Type: application/json
 {
   "nombre": "Juan Pérez",
   "email": "juan.perez@example.com",
-  "avatar": "https://example.com/avatar.jpg",  // Opcional
-  "estado": "activo"  // Opcional, default: "activo"
+  "avatar": "https://example.com/avatar.jpg",
+  "estado": "pendiente"
 }
 ```
 
@@ -272,58 +639,21 @@ Content-Type: application/json
   "data": {
     "_id": "507f1f77bcf86cd799439011",
     "userId": "507f1f77bcf86cd799439012",
+    "amigoUserId": "507f1f77bcf86cd799439013",
     "nombre": "Juan Pérez",
     "email": "juan.perez@example.com",
     "avatar": "https://example.com/avatar.jpg",
-    "estado": "activo",
-    "fechaAmistad": "2024-11-15T10:00:00.000Z",
+    "estado": "pendiente",
+    "solicitadoPor": "507f1f77bcf86cd799439012",
     "createdAt": "2024-11-15T10:00:00.000Z"
   },
-  "message": "Amigo creado exitosamente"
+  "message": "Solicitud de amistad creada exitosamente"
 }
-```
-
-**Errores posibles:**
-- `400`: Campos requeridos faltantes o inválidos
-- `409`: Ya existe un amigo con ese email
-
-**Ejemplo de implementación:**
-```typescript
-interface CreateAmigoData {
-  nombre: string;
-  email: string;
-  avatar?: string;
-  estado?: 'activo' | 'pendiente' | 'bloqueado';
-}
-
-const createAmigo = async (data: CreateAmigoData): Promise<Amigo> => {
-  const token = localStorage.getItem('token');
-  
-  const response = await fetch('http://localhost:4444/api/amigos', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(data)
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    if (response.status === 409) {
-      throw new Error('Ya existe un amigo con ese email');
-    }
-    throw new Error(error.error || 'Error al crear amigo');
-  }
-
-  const result = await response.json();
-  return result.data;
-};
 ```
 
 ---
 
-### 6. Actualizar Amigo
+### 11. Actualizar Amigo
 
 **Endpoint:**
 ```
@@ -352,9 +682,15 @@ Content-Type: application/json
   "success": true,
   "data": {
     "_id": "507f1f77bcf86cd799439011",
+    "userId": "507f1f77bcf86cd799439012",
+    "amigoUserId": "507f1f77bcf86cd799439013",
     "nombre": "Juan Pérez Actualizado",
     "email": "juan.perez.nuevo@example.com",
-    "estado": "bloqueado"
+    "avatar": "https://example.com/nuevo-avatar.jpg",
+    "estado": "bloqueado",
+    "solicitadoPor": "507f1f77bcf86cd799439012",
+    "fechaAmistad": "2024-11-15T10:00:00.000Z",
+    "createdAt": "2024-11-15T10:00:00.000Z"
   },
   "message": "Amigo actualizado exitosamente"
 }
@@ -366,7 +702,7 @@ interface UpdateAmigoData {
   nombre?: string;
   email?: string;
   avatar?: string;
-  estado?: 'activo' | 'pendiente' | 'bloqueado';
+  estado?: 'pendiente' | 'activo' | 'rechazada' | 'bloqueado';
 }
 
 const updateAmigo = async (id: string, data: UpdateAmigoData): Promise<Amigo> => {
@@ -399,7 +735,7 @@ const updateAmigo = async (id: string, data: UpdateAmigoData): Promise<Amigo> =>
 
 ---
 
-### 7. Actualizar Estado de Amigo
+### 12. Actualizar Estado de Amigo
 
 **Endpoint:**
 ```
@@ -425,7 +761,15 @@ Content-Type: application/json
   "success": true,
   "data": {
     "_id": "507f1f77bcf86cd799439011",
-    "estado": "bloqueado"
+    "userId": "507f1f77bcf86cd799439012",
+    "amigoUserId": "507f1f77bcf86cd799439013",
+    "nombre": "Juan Pérez",
+    "email": "juan.perez@example.com",
+    "avatar": "https://example.com/avatar.jpg",
+    "estado": "bloqueado",
+    "solicitadoPor": "507f1f77bcf86cd799439012",
+    "fechaAmistad": "2024-11-15T10:00:00.000Z",
+    "createdAt": "2024-11-15T10:00:00.000Z"
   },
   "message": "Estado actualizado exitosamente"
 }
@@ -435,7 +779,7 @@ Content-Type: application/json
 ```typescript
 const updateEstadoAmigo = async (
   id: string, 
-  estado: 'activo' | 'pendiente' | 'bloqueado'
+  estado: 'pendiente' | 'activo' | 'rechazada' | 'bloqueado'
 ): Promise<Amigo> => {
   const token = localStorage.getItem('token');
   
@@ -463,7 +807,7 @@ const updateEstadoAmigo = async (
 
 ---
 
-### 8. Eliminar Amigo
+### 13. Eliminar Amigo
 
 **Endpoint:**
 ```
@@ -516,11 +860,34 @@ const deleteAmigo = async (id: string): Promise<void> => {
 export interface Amigo {
   _id: string;
   userId: string;
+  amigoUserId: string;
   nombre: string;
   email: string;
   avatar?: string;
-  estado: 'activo' | 'pendiente' | 'bloqueado';
-  fechaAmistad: string;
+  estado: 'pendiente' | 'activo' | 'rechazada' | 'bloqueado';
+  solicitadoPor: string;
+  fechaAmistad?: string;
+  createdAt: string;
+}
+
+export interface UsuarioConEstado {
+  _id: string;
+  nombre: string;
+  email: string;
+  avatar?: string;
+  estadoAmistad: 'pendiente' | 'activo' | 'rechazada' | 'bloqueado' | null;
+  esAmigo: boolean;
+}
+
+export interface SolicitudAmistad {
+  _id: string;
+  solicitante: {
+    _id: string;
+    nombre: string;
+    email: string;
+    avatar?: string;
+  };
+  estado: 'pendiente';
   createdAt: string;
 }
 
@@ -528,14 +895,14 @@ export interface CreateAmigoData {
   nombre: string;
   email: string;
   avatar?: string;
-  estado?: 'activo' | 'pendiente' | 'bloqueado';
+  estado?: 'pendiente' | 'activo' | 'rechazada' | 'bloqueado';
 }
 
 export interface UpdateAmigoData {
   nombre?: string;
   email?: string;
   avatar?: string;
-  estado?: 'activo' | 'pendiente' | 'bloqueado';
+  estado?: 'pendiente' | 'activo' | 'rechazada' | 'bloqueado';
 }
 
 // Configuración
@@ -571,6 +938,8 @@ const apiRequest = async (
 };
 
 // Funciones de API
+
+// Obtener todos los amigos (solo activos)
 export const getAmigos = async (): Promise<Amigo[]> => {
   const response = await apiRequest('/api/amigos');
   
@@ -582,6 +951,88 @@ export const getAmigos = async (): Promise<Amigo[]> => {
   return result.data;
 };
 
+// Buscar usuarios del sistema (NUEVO)
+export const searchUsuarios = async (query: string): Promise<UsuarioConEstado[]> => {
+  const response = await apiRequest(
+    `/api/amigos/usuarios/search?q=${encodeURIComponent(query)}`
+  );
+  
+  if (!response.ok) {
+    throw new Error('Error al buscar usuarios');
+  }
+
+  const result = await response.json();
+  return result.data;
+};
+
+// Enviar solicitud de amistad (NUEVO)
+export const enviarSolicitud = async (amigoUserId: string): Promise<Amigo> => {
+  const response = await apiRequest('/api/amigos/solicitud', {
+    method: 'POST',
+    body: JSON.stringify({ amigoUserId })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    if (response.status === 409) {
+      throw new Error('Ya existe una relación con este usuario');
+    }
+    throw new Error(error.error || 'Error al enviar solicitud');
+  }
+
+  const result = await response.json();
+  return result.data;
+};
+
+// Obtener solicitudes recibidas (NUEVO)
+export const getSolicitudesRecibidas = async (): Promise<SolicitudAmistad[]> => {
+  const response = await apiRequest('/api/amigos/solicitudes');
+  
+  if (!response.ok) {
+    throw new Error('Error al obtener solicitudes');
+  }
+
+  const result = await response.json();
+  return result.data;
+};
+
+// Aceptar solicitud de amistad (NUEVO)
+export const aceptarSolicitud = async (solicitudId: string): Promise<void> => {
+  const response = await apiRequest(
+    `/api/amigos/solicitud/${solicitudId}/aceptar`,
+    {
+      method: 'PUT'
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    if (response.status === 404) {
+      throw new Error('Solicitud no encontrada o ya procesada');
+    }
+    throw new Error(error.error || 'Error al aceptar solicitud');
+  }
+};
+
+// Rechazar solicitud de amistad (NUEVO)
+export const rechazarSolicitud = async (solicitudId: string): Promise<void> => {
+  const response = await apiRequest(
+    `/api/amigos/solicitud/${solicitudId}/rechazar`,
+    {
+      method: 'PUT'
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    if (response.status === 404) {
+      throw new Error('Solicitud no encontrada o ya procesada');
+    }
+    throw new Error(error.error || 'Error al rechazar solicitud');
+  }
+};
+
+// Obtener amigo por ID
 export const getAmigoById = async (id: string): Promise<Amigo> => {
   const response = await apiRequest(`/api/amigos/${id}`);
   
@@ -596,6 +1047,7 @@ export const getAmigoById = async (id: string): Promise<Amigo> => {
   return result.data;
 };
 
+// Buscar entre tus amigos
 export const searchAmigos = async (query: string): Promise<Amigo[]> => {
   const response = await apiRequest(
     `/api/amigos/search?q=${encodeURIComponent(query)}`
@@ -609,8 +1061,9 @@ export const searchAmigos = async (query: string): Promise<Amigo[]> => {
   return result.data;
 };
 
+// Obtener amigos por estado
 export const getAmigosByEstado = async (
-  estado: 'activo' | 'pendiente' | 'bloqueado'
+  estado: 'pendiente' | 'activo' | 'rechazada' | 'bloqueado'
 ): Promise<Amigo[]> => {
   const response = await apiRequest(`/api/amigos/estado/${estado}`);
   
@@ -622,6 +1075,7 @@ export const getAmigosByEstado = async (
   return result.data;
 };
 
+// Crear amigo (DEPRECADO - usar enviarSolicitud)
 export const createAmigo = async (data: CreateAmigoData): Promise<Amigo> => {
   const response = await apiRequest('/api/amigos', {
     method: 'POST',
@@ -640,6 +1094,7 @@ export const createAmigo = async (data: CreateAmigoData): Promise<Amigo> => {
   return result.data;
 };
 
+// Actualizar amigo
 export const updateAmigo = async (
   id: string,
   data: UpdateAmigoData
@@ -664,9 +1119,10 @@ export const updateAmigo = async (
   return result.data;
 };
 
+// Actualizar estado de amigo
 export const updateEstadoAmigo = async (
   id: string,
-  estado: 'activo' | 'pendiente' | 'bloqueado'
+  estado: 'pendiente' | 'activo' | 'rechazada' | 'bloqueado'
 ): Promise<Amigo> => {
   const response = await apiRequest(`/api/amigos/${id}/estado`, {
     method: 'PUT',
@@ -685,6 +1141,7 @@ export const updateEstadoAmigo = async (
   return result.data;
 };
 
+// Eliminar amigo
 export const deleteAmigo = async (id: string): Promise<void> => {
   const response = await apiRequest(`/api/amigos/${id}`, {
     method: 'DELETE'
@@ -703,82 +1160,182 @@ export const deleteAmigo = async (id: string): Promise<void> => {
 
 ## 📱 Ejemplo de Uso en Componente React/Next.js
 
+### Componente de Búsqueda y Solicitudes
+
 ```typescript
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAmigos, createAmigo, deleteAmigo, updateEstadoAmigo } from '@/lib/amigos';
-import type { Amigo } from '@/lib/amigos';
+import { 
+  searchUsuarios, 
+  enviarSolicitud, 
+  getSolicitudesRecibidas,
+  aceptarSolicitud,
+  rechazarSolicitud,
+  getAmigos
+} from '@/lib/amigos';
+import type { UsuarioConEstado, SolicitudAmistad, Amigo } from '@/lib/amigos';
 
 export default function AmigosPage() {
+  const [usuarios, setUsuarios] = useState<UsuarioConEstado[]>([]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudAmistad[]>([]);
   const [amigos, setAmigos] = useState<Amigo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Cargar amigos al montar el componente
+  // Cargar solicitudes y amigos al montar
   useEffect(() => {
+    loadSolicitudes();
     loadAmigos();
   }, []);
 
+  const loadSolicitudes = async () => {
+    try {
+      const data = await getSolicitudesRecibidas();
+      setSolicitudes(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar solicitudes');
+    }
+  };
+
   const loadAmigos = async () => {
     try {
-      setLoading(true);
       const data = await getAmigos();
       setAmigos(data);
-      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar amigos');
+    }
+  };
+
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) {
+      setUsuarios([]);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await searchUsuarios(query);
+      setUsuarios(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al buscar usuarios');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateAmigo = async (nombre: string, email: string) => {
+  const handleEnviarSolicitud = async (amigoUserId: string) => {
     try {
-      const nuevoAmigo = await createAmigo({ nombre, email });
-      setAmigos([...amigos, nuevoAmigo]);
+      await enviarSolicitud(amigoUserId);
+      // Actualizar estado del usuario en la lista
+      setUsuarios(usuarios.map(u => 
+        u._id === amigoUserId 
+          ? { ...u, estadoAmistad: 'pendiente', esAmigo: false }
+          : u
+      ));
+      alert('Solicitud enviada exitosamente');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear amigo');
+      setError(err instanceof Error ? err.message : 'Error al enviar solicitud');
     }
   };
 
-  const handleDeleteAmigo = async (id: string) => {
+  const handleAceptarSolicitud = async (solicitudId: string) => {
     try {
-      await deleteAmigo(id);
-      setAmigos(amigos.filter(a => a._id !== id));
+      await aceptarSolicitud(solicitudId);
+      // Recargar solicitudes y amigos
+      await loadSolicitudes();
+      await loadAmigos();
+      alert('Solicitud aceptada');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al eliminar amigo');
+      setError(err instanceof Error ? err.message : 'Error al aceptar solicitud');
     }
   };
 
-  const handleUpdateEstado = async (id: string, estado: 'activo' | 'pendiente' | 'bloqueado') => {
+  const handleRechazarSolicitud = async (solicitudId: string) => {
     try {
-      const amigoActualizado = await updateEstadoAmigo(id, estado);
-      setAmigos(amigos.map(a => a._id === id ? amigoActualizado : a));
+      await rechazarSolicitud(solicitudId);
+      // Recargar solicitudes
+      await loadSolicitudes();
+      alert('Solicitud rechazada');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al actualizar estado');
+      setError(err instanceof Error ? err.message : 'Error al rechazar solicitud');
     }
   };
-
-  if (loading) return <div>Cargando...</div>;
-  if (error) return <div>Error: {error}</div>;
 
   return (
     <div>
-      <h1>Mis Amigos</h1>
-      {amigos.map(amigo => (
-        <div key={amigo._id}>
-          <h3>{amigo.nombre}</h3>
-          <p>{amigo.email}</p>
-          <p>Estado: {amigo.estado}</p>
-          <button onClick={() => handleDeleteAmigo(amigo._id)}>
-            Eliminar
-          </button>
-          <button onClick={() => handleUpdateEstado(amigo._id, 'bloqueado')}>
-            Bloquear
-          </button>
-        </div>
-      ))}
+      <h1>Gestión de Amigos</h1>
+      
+      {/* Búsqueda de usuarios */}
+      <section>
+        <h2>Buscar Usuarios</h2>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            handleSearch(e.target.value);
+          }}
+          placeholder="Buscar por nombre o email..."
+        />
+        
+        {loading && <p>Buscando...</p>}
+        
+        {usuarios.map(usuario => (
+          <div key={usuario._id}>
+            <h3>{usuario.nombre}</h3>
+            <p>{usuario.email}</p>
+            <p>Estado: {usuario.estadoAmistad || 'Sin relación'}</p>
+            
+            {!usuario.esAmigo && usuario.estadoAmistad !== 'pendiente' && (
+              <button onClick={() => handleEnviarSolicitud(usuario._id)}>
+                Enviar Solicitud
+              </button>
+            )}
+            
+            {usuario.estadoAmistad === 'pendiente' && (
+              <span>Solicitud pendiente</span>
+            )}
+            
+            {usuario.esAmigo && (
+              <span>✓ Ya son amigos</span>
+            )}
+          </div>
+        ))}
+      </section>
+
+      {/* Solicitudes recibidas */}
+      <section>
+        <h2>Solicitudes Recibidas ({solicitudes.length})</h2>
+        {solicitudes.map(solicitud => (
+          <div key={solicitud._id}>
+            <h3>{solicitud.solicitante.nombre}</h3>
+            <p>{solicitud.solicitante.email}</p>
+            <button onClick={() => handleAceptarSolicitud(solicitud._id)}>
+              Aceptar
+            </button>
+            <button onClick={() => handleRechazarSolicitud(solicitud._id)}>
+              Rechazar
+            </button>
+          </div>
+        ))}
+      </section>
+
+      {/* Lista de amigos */}
+      <section>
+        <h2>Mis Amigos ({amigos.length})</h2>
+        {amigos.map(amigo => (
+          <div key={amigo._id}>
+            <h3>{amigo.nombre}</h3>
+            <p>{amigo.email}</p>
+            <p>Amigos desde: {new Date(amigo.fechaAmistad!).toLocaleDateString()}</p>
+          </div>
+        ))}
+      </section>
+
+      {error && <div style={{ color: 'red' }}>Error: {error}</div>}
     </div>
   );
 }
@@ -794,25 +1351,31 @@ export default function AmigosPage() {
 - **201 Created**: Recurso creado exitosamente
 - **400 Bad Request**: Datos inválidos o faltantes
 - **401 Unauthorized**: Token inválido o faltante
+- **403 Forbidden**: No tienes permiso (ej: intentar chatear sin ser amigos mutuos)
 - **404 Not Found**: Recurso no encontrado
-- **409 Conflict**: Email duplicado
+- **409 Conflict**: Ya existe una relación con este usuario
 - **500 Internal Server Error**: Error del servidor
 
 ### Manejo de Errores en el Frontend
 
 ```typescript
 try {
-  const amigo = await createAmigo({ nombre: 'Juan', email: 'juan@example.com' });
+  await enviarSolicitud(amigoUserId);
 } catch (error) {
   if (error instanceof Error) {
     // Mostrar mensaje de error al usuario
     console.error(error.message);
     
     // Manejar errores específicos
-    if (error.message.includes('Ya existe un amigo')) {
+    if (error.message.includes('Ya existe una relación')) {
       // Mostrar mensaje específico para duplicados
+      alert('Ya tienes una relación con este usuario');
     } else if (error.message.includes('token')) {
       // Redirigir a login
+      window.location.href = '/login';
+    } else if (error.message.includes('No puedes enviar')) {
+      // No puedes enviar solicitud a ti mismo
+      alert('No puedes enviar una solicitud a ti mismo');
     }
   }
 }
@@ -823,53 +1386,63 @@ try {
 ## ✅ Checklist de Integración
 
 - [ ] Crear archivo `lib/amigos.ts` con todas las funciones helper
-- [ ] Definir tipos TypeScript para `Amigo`, `CreateAmigoData`, `UpdateAmigoData`
+- [ ] Definir tipos TypeScript actualizados (incluir `amigoUserId`, `solicitadoPor`)
 - [ ] Configurar `API_BASE_URL` en variables de entorno
 - [ ] Implementar función `getToken()` para obtener token de localStorage
 - [ ] Implementar función `apiRequest()` para requests genéricos
-- [ ] Implementar todas las funciones de API (getAmigos, createAmigo, etc.)
-- [ ] Actualizar componente de amigos para usar las nuevas funciones
-- [ ] Reemplazar llamadas a localStorage con llamadas al API
+- [ ] Implementar función `searchUsuarios()` (NUEVO)
+- [ ] Implementar función `enviarSolicitud()` (NUEVO)
+- [ ] Implementar función `getSolicitudesRecibidas()` (NUEVO)
+- [ ] Implementar función `aceptarSolicitud()` (NUEVO)
+- [ ] Implementar función `rechazarSolicitud()` (NUEVO)
+- [ ] Actualizar función `getAmigos()` (ahora solo devuelve activos)
+- [ ] Actualizar tipos para incluir nuevos campos
+- [ ] Actualizar componente de búsqueda de usuarios
+- [ ] Crear componente de solicitudes recibidas
+- [ ] Implementar flujo completo: buscar → enviar → aceptar → chatear
 - [ ] Manejar errores apropiadamente
 - [ ] Probar todos los endpoints
 - [ ] Verificar que el token se envía correctamente
-- [ ] Verificar que los errores se manejan correctamente
+- [ ] Verificar validación de amistad mutua en chat
 
 ---
 
-## 🚀 Migración desde localStorage
+## 🚀 Migración desde Sistema Anterior
 
-Si actualmente usas localStorage para amigos, aquí está cómo migrar:
+### Cambios Importantes
 
-**Antes (localStorage):**
-```typescript
-const getAmigos = () => {
-  const amigos = localStorage.getItem('amigos');
-  return amigos ? JSON.parse(amigos) : [];
-};
-```
+1. **`getAmigos()` ahora solo devuelve amigos activos**
+   - Antes: Devolvía todos los amigos
+   - Ahora: Solo devuelve amigos con estado 'activo'
+   - Para ver solicitudes pendientes: usar `getSolicitudesRecibidas()`
 
-**Después (API):**
-```typescript
-import { getAmigos } from '@/lib/amigos';
+2. **Nuevos campos en respuestas**
+   - `amigoUserId`: ID del usuario que es el amigo
+   - `solicitadoPor`: ID del usuario que envió la solicitud
 
-const loadAmigos = async () => {
-  const amigos = await getAmigos();
-  // Usar amigos del API
-};
-```
+3. **Nuevos estados válidos**
+   - Agregado: `'rechazada'`
+   - Estados completos: `'pendiente' | 'activo' | 'rechazada' | 'bloqueado'`
+
+4. **Sistema de solicitudes obligatorio**
+   - Ya no se pueden agregar amigos directamente
+   - Debe seguirse el flujo: buscar → enviar solicitud → aceptar
 
 ---
 
 ## 📝 Notas Importantes
 
 1. **Autenticación**: Todos los endpoints requieren token JWT válido
-2. **Validación de Email**: El backend valida que el email sea único por usuario
-3. **Estados Válidos**: Solo se aceptan 'activo', 'pendiente', 'bloqueado'
-4. **Búsqueda**: La búsqueda es case-insensitive y busca en nombre y email
-5. **Errores**: Siempre manejar errores y mostrar mensajes apropiados al usuario
-6. **Loading States**: Mostrar estados de carga mientras se hacen las peticiones
-7. **Optimistic Updates**: Considerar actualizar la UI antes de recibir respuesta del servidor
+2. **Amistad Mutua**: Solo usuarios con estado 'activo' mutuo pueden chatear
+3. **Validación de Email**: El backend valida que el email sea único por usuario
+4. **Estados Válidos**: Solo se aceptan 'pendiente', 'activo', 'rechazada', 'bloqueado'
+5. **Búsqueda de Usuarios vs Amigos**:
+   - `GET /api/amigos/usuarios/search`: Busca en todos los usuarios del sistema
+   - `GET /api/amigos/search`: Busca solo entre tus amigos
+6. **Solicitudes**: Al aceptar una solicitud, se crea automáticamente la relación inversa
+7. **Errores**: Siempre manejar errores y mostrar mensajes apropiados al usuario
+8. **Loading States**: Mostrar estados de carga mientras se hacen las peticiones
+9. **Optimistic Updates**: Considerar actualizar la UI antes de recibir respuesta del servidor
 
 ---
 
@@ -878,3 +1451,6 @@ const loadAmigos = async () => {
 - [Documentación del Backend](../integracion_endpoints/amigos.md)
 - [Milestone 3 Frontend](../Frontend/milestone3.md)
 
+---
+
+**Última actualización**: Sistema completo de solicitudes de amistad implementado

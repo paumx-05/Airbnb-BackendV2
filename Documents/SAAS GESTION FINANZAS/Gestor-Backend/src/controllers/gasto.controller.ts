@@ -2,6 +2,9 @@ import { Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { Gasto } from '../models/Gasto.model';
+import { Amigo } from '../models/Amigo.model';
+import { MensajeChat } from '../models/MensajeChat.model';
+import { User } from '../models/User.model';
 
 // Obtener todos los gastos de un mes
 export const getGastosByMes = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -153,6 +156,46 @@ export const createGasto = async (req: AuthRequest, res: Response): Promise<void
 
     await nuevoGasto.save();
 
+    // Crear mensajes automáticos del sistema para amigos que no han pagado
+    if (divididoNormalizado.length > 0) {
+      try {
+        for (const item of divididoNormalizado) {
+          // Solo crear mensaje si el amigo no ha pagado
+          if (!item.pagado) {
+            // Buscar el registro de Amigo del usuario actual que corresponde a este amigo
+            const amigo = await Amigo.findOne({
+              userId: req.user.userId,
+              amigoUserId: item.amigoId,
+              estado: 'activo'
+            });
+
+            if (amigo) {
+              // Buscar el usuario destinatario
+              const usuarioDestino = await User.findById(item.amigoId);
+              
+              if (usuarioDestino) {
+                // Crear mensaje del sistema
+                const mensajeSistema = new MensajeChat({
+                  remitenteId: req.user.userId,
+                  destinatarioId: usuarioDestino._id,
+                  amigoId: amigo._id,
+                  contenido: `Recordatorio de pago: Debes pagar ${item.montoDividido.toFixed(2)}€ por el gasto "${descripcion.trim()}"`,
+                  esSistema: true,
+                  leido: false
+                });
+
+                await mensajeSistema.save();
+                console.log(`[Gasto] Mensaje de recordatorio creado para ${usuarioDestino.email}`);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        // No fallar la creación del gasto si hay error al crear mensajes
+        console.error('Error al crear mensajes de recordatorio:', error);
+      }
+    }
+
     // Formatear respuesta con fechas como strings ISO y ObjectIds como strings
     res.status(201).json({
       success: true,
@@ -291,6 +334,63 @@ export const updateGasto = async (req: AuthRequest, res: Response): Promise<void
     }
 
     await gasto.save();
+
+    // Crear o actualizar mensajes automáticos del sistema para amigos que no han pagado
+    if (dividido !== undefined && Array.isArray(dividido)) {
+      try {
+        for (const item of dividido) {
+          // Solo crear mensaje si el amigo no ha pagado
+          if (!item.pagado) {
+            // Buscar el registro de Amigo del usuario actual que corresponde a este amigo
+            const amigo = await Amigo.findOne({
+              userId: req.user.userId,
+              amigoUserId: item.amigoId,
+              estado: 'activo'
+            });
+
+            if (amigo) {
+              // Buscar el usuario destinatario
+              const usuarioDestino = await User.findById(item.amigoId);
+              
+              if (usuarioDestino) {
+                // Verificar si ya existe un mensaje del sistema para este gasto y amigo
+                const mensajeExistente = await MensajeChat.findOne({
+                  remitenteId: req.user.userId,
+                  destinatarioId: usuarioDestino._id,
+                  amigoId: amigo._id,
+                  esSistema: true,
+                  contenido: { $regex: gasto.descripcion }
+                });
+
+                if (!mensajeExistente) {
+                  // Crear nuevo mensaje del sistema
+                  const mensajeSistema = new MensajeChat({
+                    remitenteId: req.user.userId,
+                    destinatarioId: usuarioDestino._id,
+                    amigoId: amigo._id,
+                    contenido: `Recordatorio de pago: Debes pagar ${item.montoDividido.toFixed(2)}€ por el gasto "${gasto.descripcion}"`,
+                    esSistema: true,
+                    leido: false
+                  });
+
+                  await mensajeSistema.save();
+                  console.log(`[Gasto] Mensaje de recordatorio creado para ${usuarioDestino.email}`);
+                } else {
+                  // Actualizar mensaje existente con nuevo monto
+                  mensajeExistente.contenido = `Recordatorio de pago: Debes pagar ${item.montoDividido.toFixed(2)}€ por el gasto "${gasto.descripcion}"`;
+                  mensajeExistente.leido = false; // Marcar como no leído si se actualiza
+                  await mensajeExistente.save();
+                  console.log(`[Gasto] Mensaje de recordatorio actualizado para ${usuarioDestino.email}`);
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        // No fallar la actualización del gasto si hay error al crear mensajes
+        console.error('Error al crear/actualizar mensajes de recordatorio:', error);
+      }
+    }
 
     res.status(200).json({
       success: true,

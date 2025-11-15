@@ -48,7 +48,7 @@ export default function GastosMesPage() {
   const [amigosSeleccionados, setAmigosSeleccionados] = useState<string[]>([])
   const [amigosPagados, setAmigosPagados] = useState<Record<string, boolean>>({})
   const [montosPersonalizados, setMontosPersonalizados] = useState<Record<string, string>>({})
-  const [amigos, setAmigos] = useState<Array<{ id: string; nombre: string; email: string }>>([])
+  const [amigos, setAmigos] = useState<Array<{ id: string; amigoUserId: string; nombre: string; email: string; estado: string }>>([])
 
   // Estado para la lista de gastos
   const [gastos, setGastos] = useState<Gasto[]>([])
@@ -81,107 +81,31 @@ export default function GastosMesPage() {
   }, [mes, searchParams])
   
   // Función para cargar amigos desde el backend
+  // Solo se cargan amigos activos (amistad mutua) para dividir gastos
   const loadAmigos = async () => {
     try {
       const amigosList = await getAmigos()
-      // Filtrar solo amigos activos para dividir gastos
+      // getAmigos() ya devuelve solo amigos activos, pero verificamos por seguridad
       const amigosActivos = amigosList
         .filter(amigo => amigo.estado === 'activo')
-        .map(amigo => ({ id: amigo.id, nombre: amigo.nombre, email: amigo.email }))
+        .map(amigo => ({ 
+          id: amigo.id, // ID del registro Amigo (para selección en UI)
+          amigoUserId: amigo.amigoUserId, // ID del usuario amigo (para enviar al backend)
+          nombre: amigo.nombre, 
+          email: amigo.email,
+          estado: amigo.estado
+        }))
       setAmigos(amigosActivos)
+      console.log(`✅ Cargados ${amigosActivos.length} amigos activos para división de gastos`)
     } catch (error) {
       console.error('Error al cargar amigos:', error)
       setAmigos([])
     }
   }
   
-  // Función para crear mensaje automático
-  const crearMensajeDeuda = (amigoId: string, amigoNombre: string, monto: number, descripcion: string) => {
-    if (typeof window !== 'undefined') {
-      // Obtener el usuario actual para saber quién envía el mensaje
-      const usuarioActual = getUsuarioActual()
-      
-      if (!usuarioActual) return
-      
-      // Guardar mensaje en el localStorage del amigo (usando el ID del amigo como clave)
-      const MENSAJES_KEY_AMIGO = `gestor-finanzas-mensajes-${amigoId}`
-      const mensajes = localStorage.getItem(MENSAJES_KEY_AMIGO)
-      let mensajesList: any[] = []
-      
-      if (mensajes) {
-        try {
-          mensajesList = JSON.parse(mensajes)
-        } catch (e) {
-          mensajesList = []
-        }
-      }
-      
-      // También guardar en el localStorage del usuario actual para que aparezca en su chat
-      const MENSAJES_KEY_USUARIO = `gestor-finanzas-mensajes-${usuarioActual.id}`
-      const mensajesUsuario = localStorage.getItem(MENSAJES_KEY_USUARIO)
-      let mensajesListUsuario: any[] = []
-      
-      if (mensajesUsuario) {
-        try {
-          mensajesListUsuario = JSON.parse(mensajesUsuario)
-        } catch (e) {
-          mensajesListUsuario = []
-        }
-      }
-      
-      const nuevoMensaje = {
-        id: Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9),
-        remitente: usuarioActual.nombre || 'Usuario Principal', // Nombre del usuario que envía
-        asunto: `Recordatorio de pago: ${descripcion}`,
-        contenido: `Hola ${amigoNombre},\n\nTe recordamos que debes pagar ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(monto)} por el gasto "${descripcion}".\n\nPor favor, realiza el pago cuando puedas.\n\nGracias.`,
-        fecha: new Date().toISOString(),
-        leido: false,
-        amigoId: usuarioActual.id, // ID del usuario que envía (desde la perspectiva del amigo que recibe)
-        usuarioId: usuarioActual.id, // ID del usuario que envía
-        esSistema: true
-      }
-      
-      // Guardar en el chat del amigo (desde su perspectiva)
-      mensajesList.push(nuevoMensaje)
-      localStorage.setItem(MENSAJES_KEY_AMIGO, JSON.stringify(mensajesList))
-      
-      // Log para depuración
-      console.log(`✅ Mensaje de deuda guardado para ${amigoNombre} (ID: ${amigoId})`, {
-        usuarioActual: usuarioActual.id,
-        amigoId: amigoId,
-        mensaje: nuevoMensaje,
-        totalMensajes: mensajesList.length,
-        MENSAJES_KEY_AMIGO: MENSAJES_KEY_AMIGO
-      })
-      
-      // Verificar que se guardó correctamente
-      const mensajesVerificados = localStorage.getItem(MENSAJES_KEY_AMIGO)
-      if (mensajesVerificados) {
-        const mensajesParseados = JSON.parse(mensajesVerificados)
-        console.log(`🔍 Verificación: Mensajes en localStorage de ${amigoNombre}:`, {
-          cantidad: mensajesParseados.length,
-          ultimoMensaje: mensajesParseados[mensajesParseados.length - 1]
-        })
-      }
-      
-      // También guardar en el chat del usuario actual (para que vea que se envió)
-      // Este mensaje debe tener amigoId = amigoId (el ID del amigo) para que aparezca en el chat del usuario principal
-      const mensajeUsuario = {
-        ...nuevoMensaje,
-        id: nuevoMensaje.id + '-usuario',
-        remitente: 'Tú',
-        amigoId: amigoId, // ID del amigo (para que aparezca en el chat del usuario principal con ese amigo)
-        contenido: `Mensaje enviado a ${amigoNombre}: Debe pagar ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(monto)} por "${descripcion}".`
-      }
-      mensajesListUsuario.push(mensajeUsuario)
-      localStorage.setItem(MENSAJES_KEY_USUARIO, JSON.stringify(mensajesListUsuario))
-      
-      console.log(`📤 Mensaje guardado en el chat del usuario principal:`, {
-        mensaje: mensajeUsuario,
-        totalMensajesUsuario: mensajesListUsuario.length
-      })
-    }
-  }
+  // NOTA: Los mensajes automáticos ahora los crea el backend automáticamente
+  // cuando se crea/actualiza un gasto con división y pagado === false
+  // No es necesario crear mensajes manualmente desde el frontend
 
   // Función para cargar categorías
   const loadCategorias = () => {
@@ -279,21 +203,26 @@ export default function GastosMesPage() {
         montoUsuario = montoTotal / totalPersonas
         
         // Crear información de división para cada amigo
+        // ⚠️ IMPORTANTE: Usar amigoUserId (ID del usuario amigo), NO id (ID del registro Amigo)
         const amigosDivididos = amigosSeleccionados
           .map(amigoId => {
             const amigoData = amigos.find(a => a.id === amigoId)
             if (!amigoData) return null
             
+            // Validar que el amigo esté activo (solo amigos activos pueden recibir mensajes)
+            if (amigoData.estado !== 'activo') {
+              console.warn(`⚠️ Amigo ${amigoData.nombre} no está activo (estado: ${amigoData.estado}). Se omitirá de la división.`)
+              return null
+            }
+            
             const montoAmigo = montoTotal / totalPersonas
             const pagado = amigosPagados[amigoId] || false
             
-            // Si no ha pagado, crear mensaje automático en el chat del amigo
-            if (!pagado) {
-              crearMensajeDeuda(amigoData.id, amigoData.nombre, montoAmigo, descripcion.trim())
-            }
+            // El backend crea automáticamente los mensajes cuando pagado === false
+            // No es necesario crear mensajes manualmente
             
             return {
-              amigoId: amigoData.id,
+              amigoId: amigoData.amigoUserId, // ✅ Usar amigoUserId, NO id
               amigoNombre: amigoData.nombre,
               montoDividido: montoAmigo,
               pagado: pagado
@@ -306,24 +235,29 @@ export default function GastosMesPage() {
         }
       } else {
         // Modo personalizado: usar los montos manuales
+        // ⚠️ IMPORTANTE: Usar amigoUserId (ID del usuario amigo), NO id (ID del registro Amigo)
         let sumaMontosAmigos = 0
         const amigosDivididos = amigosSeleccionados
           .map(amigoId => {
             const amigoData = amigos.find(a => a.id === amigoId)
             if (!amigoData) return null
             
+            // Validar que el amigo esté activo (solo amigos activos pueden recibir mensajes)
+            if (amigoData.estado !== 'activo') {
+              console.warn(`⚠️ Amigo ${amigoData.nombre} no está activo (estado: ${amigoData.estado}). Se omitirá de la división.`)
+              return null
+            }
+            
             const montoAmigoStr = montosPersonalizados[amigoId] || '0'
             const montoAmigo = parseFloat(montoAmigoStr) || 0
             sumaMontosAmigos += montoAmigo
             const pagado = amigosPagados[amigoId] || false
             
-            // Si no ha pagado, crear mensaje automático en el chat del amigo
-            if (!pagado) {
-              crearMensajeDeuda(amigoData.id, amigoData.nombre, montoAmigo, descripcion.trim())
-            }
+            // El backend crea automáticamente los mensajes cuando pagado === false
+            // No es necesario crear mensajes manualmente
             
             return {
-              amigoId: amigoData.id,
+              amigoId: amigoData.amigoUserId, // ✅ Usar amigoUserId, NO id
               amigoNombre: amigoData.nombre,
               montoDividido: montoAmigo,
               pagado: pagado
@@ -400,17 +334,27 @@ export default function GastosMesPage() {
     setCategoria(gasto.categoria)
     
     // Si el gasto tiene división, cargar esa información
+    // ⚠️ IMPORTANTE: El backend devuelve amigoId como amigoUserId
+    // Necesitamos mapearlo de vuelta al id del registro Amigo para la UI
     if (gasto.dividido && gasto.dividido.length > 0) {
       setDividirGasto(true)
-      const amigosIds = gasto.dividido.map(item => item.amigoId)
-      setAmigosSeleccionados(amigosIds)
-      
+      const amigosIds: string[] = []
       const pagados: Record<string, boolean> = {}
       const montos: Record<string, string> = {}
+      
       gasto.dividido.forEach(item => {
-        pagados[item.amigoId] = item.pagado
-        montos[item.amigoId] = item.montoDividido.toString()
+        // Buscar el amigo por amigoUserId para obtener su id (del registro Amigo)
+        const amigo = amigos.find(a => a.amigoUserId === item.amigoId)
+        if (amigo) {
+          amigosIds.push(amigo.id) // Usar id del registro Amigo para la UI
+          pagados[amigo.id] = item.pagado
+          montos[amigo.id] = item.montoDividido.toString()
+        } else {
+          console.warn(`⚠️ No se encontró amigo con amigoUserId: ${item.amigoId} al editar gasto`)
+        }
       })
+      
+      setAmigosSeleccionados(amigosIds)
       setAmigosPagados(pagados)
       setMontosPersonalizados(montos)
       setModoDivision('personalizado') // Por defecto personalizado si ya tiene división
