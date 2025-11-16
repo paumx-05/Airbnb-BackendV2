@@ -394,3 +394,4 @@ La integración del módulo de ingresos con el backend MongoDB ha sido completad
 **Fecha:** $(date)  
 **Versión:** 1.0.0
 
+

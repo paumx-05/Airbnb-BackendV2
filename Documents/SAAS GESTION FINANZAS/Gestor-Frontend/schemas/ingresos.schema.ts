@@ -107,3 +107,4 @@ export type IngresosByCategoriaResponse = z.infer<typeof IngresosByCategoriaResp
 export type DeleteIngresoResponse = z.infer<typeof DeleteIngresoResponseSchema>
 export type MesValido = z.infer<typeof MesValidoSchema>
 
+
