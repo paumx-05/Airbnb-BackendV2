@@ -1,9 +1,17 @@
-// Utilidades para manejar ingresos en localStorage
-// Funciones simples para guardar, obtener y eliminar ingresos por mes
+// ⚠️ DEPRECADO: Este archivo usa localStorage (mock)
+// ✅ MIGRAR A: services/ingresos.service.ts (backend MongoDB real)
+// 
+// Este archivo se mantiene temporalmente para compatibilidad con:
+// - app/dashboard/page.tsx
+// - app/dashboard/distribucion/page.tsx
+// - lib/distribucion.ts
+//
+// TODO: Migrar estos archivos para usar ingresosService del backend real
 
 import type { Gasto } from './gastos'
 import { getUsuarioActual } from './auth'
 
+// Tipo local (compatibilidad) - usar Ingreso de models/ingresos.ts en nuevo código
 export interface Ingreso {
   id: string
   descripcion: string
@@ -35,6 +43,7 @@ function getStorageKey(mes: string, userId?: string): string {
   return `ingresos-${usuarioId}-${mes}`
 }
 
+// ⚠️ DEPRECADO: Usar ingresosService.getIngresosByMes() del backend real
 // Función para obtener todos los ingresos de un mes
 export function getIngresos(mes: string, userId?: string): Ingreso[] {
   if (typeof window === 'undefined') return []
@@ -49,6 +58,7 @@ export function getIngresos(mes: string, userId?: string): Ingreso[] {
   return JSON.parse(ingresosJson)
 }
 
+// ⚠️ DEPRECADO: No usar - los ingresos se guardan en MongoDB
 // Función para guardar ingresos de un mes
 export function saveIngresos(mes: string, ingresos: Ingreso[], userId?: string): void {
   if (typeof window === 'undefined') return
@@ -57,6 +67,7 @@ export function saveIngresos(mes: string, ingresos: Ingreso[], userId?: string):
   localStorage.setItem(key, JSON.stringify(ingresos))
 }
 
+// ⚠️ DEPRECADO: Usar ingresosService.createIngreso() del backend real
 // Función para agregar un nuevo ingreso
 export function addIngreso(mes: string, ingreso: Omit<Ingreso, 'id'>, userId?: string): void {
   const ingresos = getIngresos(mes, userId)
@@ -68,6 +79,7 @@ export function addIngreso(mes: string, ingreso: Omit<Ingreso, 'id'>, userId?: s
   saveIngresos(mes, ingresos, userId)
 }
 
+// ⚠️ DEPRECADO: Usar ingresosService.deleteIngreso() del backend real
 // Función para eliminar un ingreso
 export function deleteIngreso(mes: string, id: string, userId?: string): void {
   const ingresos = getIngresos(mes, userId)
@@ -75,6 +87,7 @@ export function deleteIngreso(mes: string, id: string, userId?: string): void {
   saveIngresos(mes, ingresosFiltrados, userId)
 }
 
+// ⚠️ DEPRECADO: Usar ingresosService.getTotalByMes() del backend real
 // Función para obtener el total de ingresos de un mes
 export function getTotalIngresos(mes: string, userId?: string): number {
   const ingresos = getIngresos(mes, userId)

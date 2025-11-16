@@ -193,11 +193,27 @@ export const chatService = {
   },
 
   /**
-   * Marca todos los mensajes de un chat como leídos
+   * Marca todos los mensajes no leídos de un chat como leídos
    */
   async markChatAsLeido(amigoId: string): Promise<{ mensajesActualizados: number }> {
     const response = await fetchAPI<BackendMarkChatLeidoResponse>(
       API_CONFIG.ENDPOINTS.CHAT.MARK_AS_LEIDO(amigoId),
+      {
+        method: 'PUT',
+      },
+      MarkChatLeidoResponseSchema
+    )
+    
+    return response.data
+  },
+
+  /**
+   * Marca TODOS los mensajes de un chat como leídos (incluso los que ya estaban leídos)
+   * Útil para forzar la actualización del estado de lectura
+   */
+  async markAllChatAsLeidos(amigoId: string): Promise<{ mensajesActualizados: number }> {
+    const response = await fetchAPI<BackendMarkChatLeidoResponse>(
+      API_CONFIG.ENDPOINTS.CHAT.MARK_ALL_AS_LEIDOS(amigoId),
       {
         method: 'PUT',
       },

@@ -2,13 +2,14 @@
 
 // Página de ingresos mensuales
 // Página dinámica que muestra los ingresos de un mes específico
-// Permite agregar, ver y eliminar ingresos guardados en localStorage
+// Integración completa con backend MongoDB
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import { getAuth, getUsuarioActual } from '@/lib/auth'
-import { getIngresos, addIngreso, deleteIngreso, getTotalIngresos, type Ingreso } from '@/lib/ingresos'
+import { ingresosService } from '@/services/ingresos.service'
+import type { Ingreso, MesValido } from '@/models/ingresos'
 import { getNombresCategoriasPorTipo } from '@/lib/categorias'
 
 // Mapeo de valores de mes a nombres completos
@@ -43,6 +44,8 @@ export default function IngresosMesPage() {
   // Estado para la lista de ingresos
   const [ingresos, setIngresos] = useState<Ingreso[]>([])
   const [total, setTotal] = useState(0)
+  const [loadingIngresos, setLoadingIngresos] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
   // Estado para categorías disponibles
   const [categoriasDisponibles, setCategoriasDisponibles] = useState<string[]>([])
@@ -98,55 +101,96 @@ export default function IngresosMesPage() {
   }, [mes])
 
   // Función para cargar ingresos del mes
-  const loadIngresos = () => {
-    const usuarioActual = getUsuarioActual()
-    if (usuarioActual) {
-      const ingresosMes = getIngresos(mes, usuarioActual.id)
-      const totalMes = getTotalIngresos(mes, usuarioActual.id)
-      setIngresos(ingresosMes)
-      setTotal(totalMes)
+  const loadIngresos = async () => {
+    if (!mes || !isMesValido(mes)) {
+      setError('Mes inválido')
+      setLoadingIngresos(false)
+      return
     }
+
+    try {
+      setLoadingIngresos(true)
+      setError(null)
+      
+      const [ingresosData, totalData] = await Promise.all([
+        ingresosService.getIngresosByMes(mes as MesValido),
+        ingresosService.getTotalByMes(mes as MesValido)
+      ])
+      
+      setIngresos(ingresosData)
+      setTotal(totalData)
+    } catch (err: any) {
+      console.error('Error al cargar ingresos:', err)
+      setError(err.message || 'Error al cargar ingresos')
+      setIngresos([])
+      setTotal(0)
+    } finally {
+      setLoadingIngresos(false)
+    }
+  }
+
+  // Función helper para validar mes
+  const isMesValido = (mes: string): mes is MesValido => {
+    const mesesValidos: MesValido[] = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ]
+    return mesesValidos.includes(mes as MesValido)
   }
 
   // Función para manejar el submit del formulario
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setLoading(true)
-
-    // Simular delay de red
-    await new Promise(resolve => setTimeout(resolve, 300))
-
-    // Agregar el ingreso
-    const usuarioActual = getUsuarioActual()
-    if (usuarioActual) {
-      addIngreso(mes, {
-        descripcion: descripcion.trim(),
-        monto: parseFloat(monto),
-        fecha: fecha,
-        mes: mes,
-        categoria: categoria || 'Otros'
-      }, usuarioActual.id)
+    
+    if (!mes || !isMesValido(mes)) {
+      setError('Mes inválido')
+      return
     }
 
-    // Limpiar formulario
-    setDescripcion('')
-    setMonto('')
-    setFecha('')
-    setCategoria('')
+    setLoading(true)
+    setError(null)
 
-    // Recargar ingresos
-    loadIngresos()
-    setLoading(false)
+    try {
+      // Convertir fecha a Date object si es string
+      const fechaDate = fecha ? new Date(fecha) : new Date()
+      
+      await ingresosService.createIngreso({
+        descripcion: descripcion.trim(),
+        monto: parseFloat(monto),
+        fecha: fechaDate,
+        categoria: categoria || 'Otros',
+        mes: mes as MesValido
+      })
+
+      // Limpiar formulario
+      setDescripcion('')
+      setMonto('')
+      setFecha('')
+      setCategoria('')
+
+      // Recargar ingresos
+      await loadIngresos()
+    } catch (err: any) {
+      console.error('Error al crear ingreso:', err)
+      setError(err.message || 'Error al crear ingreso')
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Función para eliminar un ingreso
-  const handleDelete = (id: string) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este ingreso?')) {
-      const usuarioActual = getUsuarioActual()
-      if (usuarioActual) {
-        deleteIngreso(mes, id, usuarioActual.id)
-        loadIngresos()
-      }
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este ingreso?')) {
+      return
+    }
+
+    try {
+      setError(null)
+      await ingresosService.deleteIngreso(id)
+      await loadIngresos()
+    } catch (err: any) {
+      console.error('Error al eliminar ingreso:', err)
+      setError(err.message || 'Error al eliminar ingreso')
     }
   }
 
@@ -179,6 +223,17 @@ export default function IngresosMesPage() {
           <p className="ingresos-subtitle">
             Gestiona tus ingresos del mes de {nombreMes.toLowerCase()}
           </p>
+          {error && (
+            <div style={{ 
+              padding: '10px', 
+              marginTop: '10px', 
+              backgroundColor: '#fee', 
+              color: '#c33', 
+              borderRadius: '4px' 
+            }}>
+              {error}
+            </div>
+          )}
         </div>
 
         {/* Layout horizontal: Formulario y Lista lado a lado */}
@@ -269,11 +324,21 @@ export default function IngresosMesPage() {
             Ingresos Registrados ({ingresos.length})
           </h2>
           
-          {ingresos.length > 0 ? (
+          {loadingIngresos ? (
+            <div className="ingresos-list">
+              <p className="ingresos-empty">Cargando ingresos...</p>
+            </div>
+          ) : error ? (
+            <div className="ingresos-list">
+              <p className="ingresos-empty" style={{ color: 'red' }}>
+                {error}
+              </p>
+            </div>
+          ) : ingresos.length > 0 ? (
             <>
               <div className="ingresos-list">
                 {ingresos.map((ingreso) => (
-                  <div key={ingreso.id} className="ingreso-item">
+                  <div key={ingreso._id} className="ingreso-item">
                     <div className="ingreso-item-content">
                       <div className="ingreso-item-header">
                         <div className="ingreso-item-left">
@@ -285,9 +350,10 @@ export default function IngresosMesPage() {
                       <p className="ingreso-item-fecha">{formatFecha(ingreso.fecha)}</p>
                     </div>
                     <button
-                      onClick={() => handleDelete(ingreso.id)}
+                      onClick={() => handleDelete(ingreso._id)}
                       className="ingreso-item-delete"
                       title="Eliminar ingreso"
+                      disabled={loading}
                     >
                       🗑️
                     </button>

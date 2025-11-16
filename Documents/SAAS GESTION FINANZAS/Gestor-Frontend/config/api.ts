@@ -29,6 +29,14 @@ export const API_CONFIG = {
       GET_TOTAL: (mes: string) => `/api/gastos/${mes}/total`, // Obtener total de gastos por mes
       GET_BY_CATEGORIA: (mes: string, categoria: string) => `/api/gastos/${mes}/categoria/${encodeURIComponent(categoria)}`, // Obtener gastos por categoría
     },
+    INGRESOS: {
+      GET_BY_MES: (mes: string) => `/api/ingresos/${mes}`, // Obtener ingresos por mes
+      CREATE: '/api/ingresos', // Crear ingreso
+      UPDATE: (id: string) => `/api/ingresos/${id}`, // Actualizar ingreso
+      DELETE: (id: string) => `/api/ingresos/${id}`, // Eliminar ingreso
+      GET_TOTAL: (mes: string) => `/api/ingresos/${mes}/total`, // Obtener total de ingresos por mes
+      GET_BY_CATEGORIA: (mes: string, categoria: string) => `/api/ingresos/${mes}/categoria/${encodeURIComponent(categoria)}`, // Obtener ingresos por categoría
+    },
     AMIGOS: {
       GET_ALL: '/api/amigos', // Obtener todos los amigos (solo activos)
       GET_BY_ID: (id: string) => `/api/amigos/${id}`, // Obtener amigo por ID
@@ -57,7 +65,28 @@ export const API_CONFIG = {
       GET_CHATS: '/api/chat/amigos', // Obtener lista de chats con amigos
       GET_MENSAJES: (amigoId: string) => `/api/chat/${amigoId}/mensajes`, // Obtener mensajes de un chat
       SEND_MENSAJE: (amigoId: string) => `/api/chat/${amigoId}/mensajes`, // Enviar mensaje en un chat
-      MARK_AS_LEIDO: (amigoId: string) => `/api/chat/${amigoId}/leer`, // Marcar mensajes de un chat como leídos
+      MARK_AS_LEIDO: (amigoId: string) => `/api/chat/${amigoId}/leer`, // Marcar mensajes no leídos de un chat como leídos
+      MARK_ALL_AS_LEIDOS: (amigoId: string) => `/api/chat/${amigoId}/leer-todos`, // Marcar TODOS los mensajes de un chat como leídos
+    },
+    NOTIFICACIONES: {
+      GET_ALL: (params?: { leida?: boolean; tipo?: string }) => {
+        const queryParams = new URLSearchParams()
+        if (params?.leida !== undefined) {
+          queryParams.append('leida', params.leida.toString())
+        }
+        if (params?.tipo) {
+          queryParams.append('tipo', params.tipo)
+        }
+        const queryString = queryParams.toString()
+        return `/api/notificaciones${queryString ? `?${queryString}` : ''}`
+      }, // Obtener todas las notificaciones con filtros opcionales
+      GET_BY_ID: (id: string) => `/api/notificaciones/${id}`, // Obtener notificación por ID
+      GET_BY_TIPO: (tipo: string) => `/api/notificaciones/tipo/${tipo}`, // Obtener notificaciones por tipo
+      CREATE: '/api/notificaciones', // Crear nueva notificación
+      MARK_AS_LEIDA: (id: string) => `/api/notificaciones/${id}/leida`, // Marcar notificación como leída
+      MARK_ALL_AS_LEIDAS: '/api/notificaciones/leer-todas', // Marcar todas las notificaciones como leídas
+      DELETE: (id: string) => `/api/notificaciones/${id}`, // Eliminar notificación por ID
+      DELETE_ALL: '/api/notificaciones', // Eliminar todas las notificaciones
     }
   },
   

@@ -75,7 +75,7 @@ export default function ChatPage() {
   const router = useRouter()
   const params = useParams()
   const amigoId = params?.amigoId as string
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   
   const [mensajes, setMensajes] = useState<MensajeChat[]>([])
   const [amigo, setAmigo] = useState<Amigo | null>(null)
@@ -83,6 +83,8 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false)
   const [loadingMensajes, setLoadingMensajes] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const [previousMensajesCount, setPreviousMensajesCount] = useState(0)
 
   // Verificar autenticación y cargar datos
   useEffect(() => {
@@ -125,16 +127,46 @@ export default function ChatPage() {
   // Cargar mensajes cuando el amigo esté disponible
   useEffect(() => {
     if (amigo && amigoId) {
+      // Prevenir scroll de la página al cargar
+      window.scrollTo(0, 0)
       loadMensajes()
       // Marcar mensajes como leídos al abrir el chat
       markAsLeido()
     }
   }, [amigo, amigoId])
-
-  // Scroll automático al final cuando hay nuevos mensajes
+  
+  // Asegurar que la página esté en la parte superior al montar y cuando cambia el amigo
   useEffect(() => {
-    scrollToBottom()
-  }, [mensajes])
+    // Forzar scroll de la página a la parte superior
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    
+    // También asegurar después de un pequeño delay por si acaso
+    const timeout = setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    }, 100)
+    
+    return () => clearTimeout(timeout)
+  }, [amigoId])
+
+  // Scroll automático al final solo cuando hay nuevos mensajes (no en carga inicial)
+  useEffect(() => {
+    // Si es la carga inicial, no hacer scroll - solo actualizar el estado
+    if (isInitialLoad) {
+      setIsInitialLoad(false)
+      setPreviousMensajesCount(mensajes.length)
+      return
+    }
+    
+    // Solo hacer scroll si hay nuevos mensajes (más mensajes que antes)
+    // Y solo si el contenedor está disponible
+    if (mensajes.length > previousMensajesCount && messagesContainerRef.current) {
+      // Pequeño delay para asegurar que el DOM se haya actualizado
+      setTimeout(() => {
+        scrollToBottom()
+      }, 50)
+      setPreviousMensajesCount(mensajes.length)
+    }
+  }, [mensajes, isInitialLoad, previousMensajesCount])
 
   // Polling para recibir nuevos mensajes (cada 3 segundos)
   useEffect(() => {
@@ -150,7 +182,13 @@ export default function ChatPage() {
   }, [amigo, amigoId])
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Hacer scroll solo en el contenedor de mensajes, no en toda la página
+    if (messagesContainerRef.current) {
+      // Asegurar que la página no haga scroll
+      window.scrollTo(0, 0)
+      // Hacer scroll solo en el contenedor
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    }
   }
 
   // Función para cargar mensajes del chat desde el backend
@@ -187,7 +225,53 @@ export default function ChatPage() {
       // Ordenar por fecha (más antiguos primero)
       mensajesData.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
       
+      // Si es la carga inicial, centrar el scroll en el medio del contenedor
+      const isFirstLoad = mensajes.length === 0 && !silent
+      const hadPreviousMensajes = mensajes.length > 0
+      const previousCount = mensajes.length
+      
       setMensajes(mensajesData)
+      
+      // Actualizar el contador para el useEffect que detecta nuevos mensajes
+      if (!isFirstLoad && hadPreviousMensajes) {
+        setPreviousMensajesCount(previousCount)
+      }
+      
+      // Si es la primera carga, centrar el scroll después de que se rendericen los mensajes
+      if (isFirstLoad && mensajesData.length > 0) {
+        // Asegurar que la página esté en la parte superior
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+        
+        // Usar requestAnimationFrame para asegurar que el DOM esté completamente renderizado
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (messagesContainerRef.current) {
+              // Asegurar nuevamente que la página no haya hecho scroll
+              window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+              
+              // Calcular la posición para centrar: scrollHeight / 2 - altura visible / 2
+              const scrollHeight = messagesContainerRef.current.scrollHeight
+              const clientHeight = messagesContainerRef.current.clientHeight
+              
+              // Si hay pocos mensajes, mostrar desde el inicio
+              // Si hay muchos mensajes, centrar en el medio
+              if (scrollHeight <= clientHeight * 2) {
+                // Pocos mensajes: mostrar desde el inicio
+                messagesContainerRef.current.scrollTop = 0
+              } else {
+                // Muchos mensajes: centrar en el medio
+                const scrollPosition = Math.max(0, (scrollHeight - clientHeight) / 2)
+                messagesContainerRef.current.scrollTop = scrollPosition
+              }
+              
+              // Verificar una vez más que la página no haya hecho scroll
+              setTimeout(() => {
+                window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+              }, 50)
+            }
+          }, 200)
+        })
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error al cargar mensajes'
       setError(errorMessage)
@@ -251,11 +335,20 @@ export default function ChatPage() {
       })
 
       // Agregar el mensaje a la lista localmente (optimistic update)
-      setMensajes(prev => [...prev, mensajeEnviado])
+      setMensajes(prev => {
+        const nuevosMensajes = [...prev, mensajeEnviado]
+        // Actualizar el contador para que el useEffect detecte el nuevo mensaje
+        setPreviousMensajesCount(nuevosMensajes.length - 1)
+        return nuevosMensajes
+      })
       setNuevoMensaje('')
       
-      // Scroll al final
-      setTimeout(() => scrollToBottom(), 100)
+      // Scroll al final después de enviar mensaje
+      // Actualizar el contador para que el useEffect no interfiera
+      setTimeout(() => {
+        setPreviousMensajesCount(mensajes.length)
+        scrollToBottom()
+      }, 100)
     } catch (err: any) {
       const errorMessage = err?.message || 'Error al enviar mensaje'
       setError(errorMessage)
@@ -358,7 +451,7 @@ export default function ChatPage() {
         )}
 
         {/* Área de mensajes */}
-        <div className="chat-messages-container">
+        <div className="chat-messages-container" ref={messagesContainerRef}>
           {loadingMensajes && mensajes.length === 0 ? (
             <div className="chat-loading">
               <p>Cargando mensajes...</p>
@@ -421,7 +514,6 @@ export default function ChatPage() {
                   </div>
                 )
               })}
-              <div ref={messagesEndRef} />
             </div>
           )}
         </div>

@@ -122,7 +122,28 @@ Authorization: Bearer <token>
 ---
 
 #### 4. PUT `/api/chat/:amigoId/leer`
-**Propósito:** Marcar todos los mensajes de un chat como leídos
+**Propósito:** Marcar todos los mensajes no leídos de un chat como leídos
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "mensajesActualizados": 5
+  },
+  "message": "5 mensaje(s) marcado(s) como leído(s)"
+}
+```
+
+**Códigos de error:**
+- `401 Unauthorized`: Token inválido o faltante
+- `404 Not Found`: Amigo no encontrado
+- `500 Internal Server Error`: Error del servidor
+
+---
+
+#### 5. PUT `/api/chat/:amigoId/leer-todos`
+**Propósito:** Marcar TODOS los mensajes de un chat como leídos (incluso los que ya estaban leídos). Útil para forzar la actualización del estado de lectura.
 
 **Response (200 OK):**
 ```json
@@ -158,13 +179,13 @@ Authorization: Bearer <token>
 3. **`services/chat.service.ts`**
    - Servicio centralizado para todas las llamadas al backend de chat
    - Manejo de errores y telemetría
-   - Funciones: `getChatsList()`, `getMensajesByAmigo()`, `sendMensaje()`, `markChatAsLeido()`
+   - Funciones: `getChatsList()`, `getMensajesByAmigo()`, `sendMensaje()`, `markChatAsLeido()`, `markAllChatAsLeidos()`
 
 ### Archivos Modificados
 
 1. **`config/api.ts`**
    - Agregados endpoints de chat en `ENDPOINTS.CHAT`
-   - Endpoints: `GET_CHATS`, `GET_MENSAJES`, `SEND_MENSAJE`, `MARK_AS_LEIDO`
+   - Endpoints: `GET_CHATS`, `GET_MENSAJES`, `SEND_MENSAJE`, `MARK_AS_LEIDO`, `MARK_ALL_AS_LEIDOS`
 
 2. **`app/dashboard/chat/[amigoId]/page.tsx`**
    - **Eliminado:** Todo el código relacionado con localStorage y mocks
