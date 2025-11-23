@@ -219,6 +219,16 @@ export default function Sidebar() {
           {!isCollapsed && <span className="sidebar-text">Distribución</span>}
         </Link>
 
+        {/* Opción de Estadísticas */}
+        <Link 
+          href="/dashboard/estadisticas" 
+          className={`sidebar-item ${pathname === '/dashboard/estadisticas' ? 'active' : ''}`}
+          title="Estadísticas"
+        >
+          <span className="sidebar-icon">📈</span>
+          {!isCollapsed && <span className="sidebar-text">Estadísticas</span>}
+        </Link>
+
         {/* Opción de Tus Categorías */}
         <Link 
           href="/dashboard/categorias" 

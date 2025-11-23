@@ -164,6 +164,12 @@ export const API_CONFIG = {
         const query = deleteData ? '?deleteData=true' : '?deleteData=false'
         return `/api/carteras/${id}${query}` // Eliminar cartera (opcionalmente eliminar datos asociados)
       },
+    },
+    ESTADISTICAS: {
+      RESUMEN: '/api/estadisticas/resumen', // Obtener resumen de estadísticas por periodo
+      TENDENCIAS: '/api/estadisticas/tendencias', // Obtener tendencias temporales con comparativa
+      CATEGORIAS: '/api/estadisticas/categorias', // Obtener análisis por categorías
+      COMPORTAMIENTO: '/api/estadisticas/comportamiento', // Obtener métricas de comportamiento
     }
   },
   
