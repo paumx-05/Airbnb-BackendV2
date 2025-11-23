@@ -24,6 +24,7 @@ export const getCategorias = async (req: AuthRequest, res: Response): Promise<vo
         userId: categoria.userId.toString(),
         nombre: categoria.nombre,
         tipo: categoria.tipo,
+        subcategorias: categoria.subcategorias || [],
         createdAt: categoria.createdAt instanceof Date 
           ? categoria.createdAt.toISOString() 
           : categoria.createdAt
@@ -76,6 +77,7 @@ export const getCategoriasByTipo = async (req: AuthRequest, res: Response): Prom
         userId: categoria.userId.toString(),
         nombre: categoria.nombre,
         tipo: categoria.tipo,
+        subcategorias: categoria.subcategorias || [],
         createdAt: categoria.createdAt instanceof Date 
           ? categoria.createdAt.toISOString() 
           : categoria.createdAt
@@ -100,7 +102,7 @@ export const createCategoria = async (req: AuthRequest, res: Response): Promise<
       return;
     }
 
-    const { nombre, tipo } = req.body;
+    const { nombre, tipo, subcategorias } = req.body;
 
     // Validar nombre
     if (!nombre || nombre.trim().length === 0) {
@@ -119,6 +121,38 @@ export const createCategoria = async (req: AuthRequest, res: Response): Promise<
         error: 'Tipo inválido. Debe ser: gastos, ingresos o ambos'
       });
       return;
+    }
+
+    // Validar subcategorías (opcional)
+    if (subcategorias !== undefined) {
+      if (!Array.isArray(subcategorias)) {
+        res.status(400).json({
+          success: false,
+          error: 'Subcategorías debe ser un array'
+        });
+        return;
+      }
+
+      if (subcategorias.length > 20) {
+        res.status(400).json({
+          success: false,
+          error: 'Máximo 20 subcategorías permitidas'
+        });
+        return;
+      }
+
+      // Validar que no haya subcategorías vacías
+      const subcategoriasValidas = subcategorias.filter(s => 
+        typeof s === 'string' && s.trim().length > 0
+      );
+
+      if (subcategoriasValidas.length !== subcategorias.length) {
+        res.status(400).json({
+          success: false,
+          error: 'Todas las subcategorías deben ser textos válidos'
+        });
+        return;
+      }
     }
 
     const nombreNormalizado = nombre.trim();
@@ -142,7 +176,8 @@ export const createCategoria = async (req: AuthRequest, res: Response): Promise<
     const nuevaCategoria = new Categoria({
       userId: req.user.userId,
       nombre: nombreNormalizado,
-      tipo: tipoNormalizado
+      tipo: tipoNormalizado,
+      subcategorias: subcategorias ? subcategorias.map((s: string) => s.trim()).filter((s: string) => s.length > 0) : []
     });
 
     await nuevaCategoria.save();
@@ -154,6 +189,7 @@ export const createCategoria = async (req: AuthRequest, res: Response): Promise<
         userId: nuevaCategoria.userId.toString(),
         nombre: nuevaCategoria.nombre,
         tipo: nuevaCategoria.tipo,
+        subcategorias: nuevaCategoria.subcategorias || [],
         createdAt: nuevaCategoria.createdAt.toISOString()
       },
       message: 'Categoría creada exitosamente'
@@ -185,7 +221,7 @@ export const updateCategoria = async (req: AuthRequest, res: Response): Promise<
     }
 
     const { id } = req.params;
-    const { nombre, tipo } = req.body;
+    const { nombre, tipo, subcategorias } = req.body;
 
     // Buscar categoría
     const categoria = await Categoria.findOne({ _id: id, userId: req.user.userId });
@@ -244,6 +280,29 @@ export const updateCategoria = async (req: AuthRequest, res: Response): Promise<
       categoria.tipo = tipoNormalizado;
     }
 
+    // Actualizar subcategorías (si se proporciona)
+    if (subcategorias !== undefined) {
+      if (!Array.isArray(subcategorias)) {
+        res.status(400).json({
+          success: false,
+          error: 'Subcategorías debe ser un array'
+        });
+        return;
+      }
+
+      if (subcategorias.length > 20) {
+        res.status(400).json({
+          success: false,
+          error: 'Máximo 20 subcategorías permitidas'
+        });
+        return;
+      }
+
+      categoria.subcategorias = subcategorias.filter(s => 
+        typeof s === 'string' && s.trim().length > 0
+      ).map(s => s.trim());
+    }
+
     await categoria.save();
 
     res.status(200).json({
@@ -253,6 +312,7 @@ export const updateCategoria = async (req: AuthRequest, res: Response): Promise<
         userId: categoria.userId.toString(),
         nombre: categoria.nombre,
         tipo: categoria.tipo,
+        subcategorias: categoria.subcategorias || [],
         createdAt: categoria.createdAt.toISOString()
       },
       message: 'Categoría actualizada exitosamente'

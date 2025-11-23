@@ -13,6 +13,7 @@ export interface IGasto extends Document {
   monto: number;
   fecha: Date;
   categoria: string;
+  subcategoria?: string | null;
   mes: string;
   dividido?: IDividido[];
   carteraId?: mongoose.Types.ObjectId;
@@ -68,6 +69,13 @@ const GastoSchema: Schema = new Schema(
       required: [true, 'La categoría es requerida'],
       trim: true
     },
+    subcategoria: {
+      type: String,
+      trim: true,
+      maxlength: 50,
+      required: false,
+      default: null
+    },
     mes: {
       type: String,
       required: [true, 'El mes es requerido'],
@@ -100,6 +108,7 @@ GastoSchema.index({ userId: 1, categoria: 1 });
 GastoSchema.index({ userId: 1, fecha: -1 });
 GastoSchema.index({ userId: 1, carteraId: 1 }); // Para búsquedas por usuario y cartera
 GastoSchema.index({ userId: 1, mes: 1, carteraId: 1 }); // Para consultas por mes y cartera
+GastoSchema.index({ userId: 1, categoria: 1, subcategoria: 1 }); // Para consultas por categoría y subcategoría
 
 export const Gasto = mongoose.model<IGasto>('Gasto', GastoSchema);
 

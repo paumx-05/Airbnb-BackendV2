@@ -2,6 +2,7 @@ import { Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { Ingreso } from '../models/Ingreso.model';
+import { Categoria } from '../models/Categoria.model';
 import { Cartera } from '../models/Cartera.model';
 
 // Obtener todos los ingresos de un mes
@@ -75,6 +76,7 @@ export const getIngresosByMes = async (req: AuthRequest, res: Response): Promise
         monto: ingreso.monto,
         fecha: ingreso.fecha instanceof Date ? ingreso.fecha.toISOString() : ingreso.fecha,
         categoria: ingreso.categoria,
+        subcategoria: ingreso.subcategoria || '',
         mes: ingreso.mes,
         carteraId: ingreso.carteraId ? ingreso.carteraId.toString() : null,
         createdAt: ingreso.createdAt instanceof Date ? ingreso.createdAt.toISOString() : ingreso.createdAt
@@ -99,7 +101,7 @@ export const createIngreso = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const { descripcion, monto, fecha, categoria, mes, carteraId } = req.body;
+    const { descripcion, monto, fecha, categoria, subcategoria, mes, carteraId } = req.body;
 
     // Validar campos requeridos
     if (!descripcion || !monto || !fecha || !categoria || !mes) {
@@ -167,6 +169,26 @@ export const createIngreso = async (req: AuthRequest, res: Response): Promise<vo
       }
     }
 
+    // Validar subcategoría si se proporciona
+    if (subcategoria !== undefined && subcategoria !== null && subcategoria.trim().length > 0) {
+      // Verificar que la subcategoría pertenezca a la categoría
+      const categoriaDoc = await Categoria.findOne({
+        userId: req.user.userId,
+        nombre: categoria.trim()
+      });
+
+      if (categoriaDoc && categoriaDoc.subcategorias && categoriaDoc.subcategorias.length > 0) {
+        const subcategoriaValida = categoriaDoc.subcategorias.includes(subcategoria.trim());
+        if (!subcategoriaValida) {
+          res.status(400).json({
+            success: false,
+            error: `La subcategoría "${subcategoria}" no pertenece a la categoría "${categoria}"`
+          });
+          return;
+        }
+      }
+    }
+
     // Crear nuevo ingreso
     const nuevoIngreso = new Ingreso({
       userId: req.user.userId,
@@ -174,6 +196,7 @@ export const createIngreso = async (req: AuthRequest, res: Response): Promise<vo
       monto,
       fecha: fechaObj,
       categoria: categoria.trim(),
+      subcategoria: subcategoria && subcategoria.trim().length > 0 ? subcategoria.trim() : undefined,
       mes: mesNormalizado,
       carteraId: carteraId || undefined
     });
@@ -190,6 +213,7 @@ export const createIngreso = async (req: AuthRequest, res: Response): Promise<vo
         monto: nuevoIngreso.monto,
         fecha: nuevoIngreso.fecha.toISOString(),
         categoria: nuevoIngreso.categoria,
+        subcategoria: nuevoIngreso.subcategoria || '',
         mes: nuevoIngreso.mes,
         carteraId: nuevoIngreso.carteraId ? nuevoIngreso.carteraId.toString() : null,
         createdAt: nuevoIngreso.createdAt.toISOString()
@@ -217,7 +241,7 @@ export const updateIngreso = async (req: AuthRequest, res: Response): Promise<vo
     }
 
     const { id } = req.params;
-    const { descripcion, monto, fecha, categoria, mes, carteraId } = req.body;
+    const { descripcion, monto, fecha, categoria, subcategoria, mes, carteraId } = req.body;
 
     // Buscar ingreso
     const ingreso = await Ingreso.findOne({ _id: id, userId: req.user.userId });
@@ -276,6 +300,31 @@ export const updateIngreso = async (req: AuthRequest, res: Response): Promise<vo
       ingreso.categoria = categoria.trim();
     }
 
+    if (subcategoria !== undefined) {
+      if (subcategoria === null || subcategoria === '') {
+        ingreso.subcategoria = undefined;
+      } else {
+        // Validar que la subcategoría pertenezca a la categoría
+        const categoriaActual = categoria || ingreso.categoria;
+        const categoriaDoc = await Categoria.findOne({
+          userId: req.user.userId,
+          nombre: categoriaActual.trim()
+        });
+
+        if (categoriaDoc && categoriaDoc.subcategorias && categoriaDoc.subcategorias.length > 0) {
+          const subcategoriaValida = categoriaDoc.subcategorias.includes(subcategoria.trim());
+          if (!subcategoriaValida) {
+            res.status(400).json({
+              success: false,
+              error: `La subcategoría "${subcategoria}" no pertenece a la categoría "${categoriaActual}"`
+            });
+            return;
+          }
+        }
+        ingreso.subcategoria = subcategoria.trim();
+      }
+    }
+
     if (mes !== undefined) {
       const mesNormalizado = mes.toLowerCase().trim();
       const mesesValidos = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
@@ -331,6 +380,7 @@ export const updateIngreso = async (req: AuthRequest, res: Response): Promise<vo
         monto: ingreso.monto,
         fecha: ingreso.fecha instanceof Date ? ingreso.fecha.toISOString() : ingreso.fecha,
         categoria: ingreso.categoria,
+        subcategoria: ingreso.subcategoria || '',
         mes: ingreso.mes,
         carteraId: ingreso.carteraId ? ingreso.carteraId.toString() : null,
         createdAt: ingreso.createdAt instanceof Date ? ingreso.createdAt.toISOString() : ingreso.createdAt
@@ -532,6 +582,7 @@ export const getIngresosByCategoria = async (req: AuthRequest, res: Response): P
         monto: ingreso.monto,
         fecha: ingreso.fecha instanceof Date ? ingreso.fecha.toISOString() : ingreso.fecha,
         categoria: ingreso.categoria,
+        subcategoria: ingreso.subcategoria || '',
         mes: ingreso.mes,
         carteraId: ingreso.carteraId ? ingreso.carteraId.toString() : null,
         createdAt: ingreso.createdAt instanceof Date ? ingreso.createdAt.toISOString() : ingreso.createdAt

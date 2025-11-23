@@ -2,6 +2,7 @@ import { Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { Gasto } from '../models/Gasto.model';
+import { Categoria } from '../models/Categoria.model';
 import { Amigo } from '../models/Amigo.model';
 import { MensajeChat } from '../models/MensajeChat.model';
 import { User } from '../models/User.model';
@@ -79,6 +80,7 @@ export const getGastosByMes = async (req: AuthRequest, res: Response): Promise<v
         monto: gasto.monto,
         fecha: gasto.fecha instanceof Date ? gasto.fecha.toISOString() : gasto.fecha,
         categoria: gasto.categoria,
+        subcategoria: gasto.subcategoria || '',
         mes: gasto.mes,
         dividido: (gasto.dividido || []).map(item => ({
           amigoId: item.amigoId?.toString() || item.amigoId,
@@ -109,7 +111,7 @@ export const createGasto = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    const { descripcion, monto, fecha, categoria, mes, dividido, carteraId } = req.body;
+    const { descripcion, monto, fecha, categoria, subcategoria, mes, dividido, carteraId } = req.body;
 
     // Validar campos requeridos
     if (!descripcion || !monto || !fecha || !categoria || !mes) {
@@ -200,6 +202,41 @@ export const createGasto = async (req: AuthRequest, res: Response): Promise<void
       }
     }
 
+    // Validar y normalizar subcategoría si se proporciona
+    let subcategoriaNormalizada: string | null = null;
+    
+    // Si se envía subcategoria, procesarla (puede ser string, string vacío, null, o undefined)
+    if (subcategoria !== undefined) {
+      if (subcategoria === null || subcategoria === '') {
+        // String vacío o null explícito = no subcategoría
+        subcategoriaNormalizada = null;
+      } else if (typeof subcategoria === 'string') {
+        const subcategoriaTrim = subcategoria.trim();
+        if (subcategoriaTrim.length > 0) {
+          // Verificar que la subcategoría pertenezca a la categoría
+          const categoriaDoc = await Categoria.findOne({
+            userId: req.user.userId,
+            nombre: categoria.trim()
+          });
+
+          if (categoriaDoc && categoriaDoc.subcategorias && categoriaDoc.subcategorias.length > 0) {
+            const subcategoriaValida = categoriaDoc.subcategorias.includes(subcategoriaTrim);
+            if (!subcategoriaValida) {
+              res.status(400).json({
+                success: false,
+                error: `La subcategoría "${subcategoriaTrim}" no pertenece a la categoría "${categoria}"`
+              });
+              return;
+            }
+          }
+          subcategoriaNormalizada = subcategoriaTrim;
+        } else {
+          // String vacío después de trim = no subcategoría
+          subcategoriaNormalizada = null;
+        }
+      }
+    }
+
     // Crear nuevo gasto
     const nuevoGasto = new Gasto({
       userId: req.user.userId,
@@ -207,12 +244,16 @@ export const createGasto = async (req: AuthRequest, res: Response): Promise<void
       monto,
       fecha: fechaObj,
       categoria: categoria.trim(),
+      subcategoria: subcategoriaNormalizada, // Puede ser string (subcategoría válida) o null (sin subcategoría)
       mes: mesNormalizado,
       dividido: divididoNormalizado,
-      carteraId: carteraId || undefined
+      carteraId: carteraId || null
     });
 
     await nuevoGasto.save();
+    
+    // Log para depuración
+    console.log('[Gasto creado] subcategoria guardada:', nuevoGasto.subcategoria);
 
     // Crear mensajes automáticos del sistema para amigos que no han pagado
     if (divididoNormalizado.length > 0) {
@@ -264,6 +305,7 @@ export const createGasto = async (req: AuthRequest, res: Response): Promise<void
         monto: nuevoGasto.monto,
         fecha: nuevoGasto.fecha.toISOString(),
         categoria: nuevoGasto.categoria,
+        subcategoria: nuevoGasto.subcategoria || '',
         mes: nuevoGasto.mes,
         dividido: (nuevoGasto.dividido || []).map(item => ({
           amigoId: item.amigoId.toString(),
@@ -297,7 +339,7 @@ export const updateGasto = async (req: AuthRequest, res: Response): Promise<void
     }
 
     const { id } = req.params;
-    const { descripcion, monto, fecha, categoria, mes, dividido, carteraId } = req.body;
+    const { descripcion, monto, fecha, categoria, subcategoria, mes, dividido, carteraId } = req.body;
 
     // Buscar gasto
     const gasto = await Gasto.findOne({ _id: id, userId: req.user.userId });
@@ -354,6 +396,32 @@ export const updateGasto = async (req: AuthRequest, res: Response): Promise<void
         return;
       }
       gasto.categoria = categoria.trim();
+    }
+
+    if (subcategoria !== undefined) {
+      if (subcategoria === null || subcategoria === '' || (typeof subcategoria === 'string' && subcategoria.trim().length === 0)) {
+        (gasto as any).subcategoria = null; // Guardar explícitamente como null
+      } else if (typeof subcategoria === 'string') {
+        const subcategoriaTrim = subcategoria.trim();
+        // Validar que la subcategoría pertenezca a la categoría
+        const categoriaActual = categoria || gasto.categoria;
+        const categoriaDoc = await Categoria.findOne({
+          userId: req.user.userId,
+          nombre: categoriaActual.trim()
+        });
+
+        if (categoriaDoc && categoriaDoc.subcategorias && categoriaDoc.subcategorias.length > 0) {
+          const subcategoriaValida = categoriaDoc.subcategorias.includes(subcategoriaTrim);
+          if (!subcategoriaValida) {
+            res.status(400).json({
+              success: false,
+              error: `La subcategoría "${subcategoriaTrim}" no pertenece a la categoría "${categoriaActual}"`
+            });
+            return;
+          }
+        }
+        gasto.subcategoria = subcategoriaTrim;
+      }
     }
 
     if (mes !== undefined) {
@@ -490,6 +558,7 @@ export const updateGasto = async (req: AuthRequest, res: Response): Promise<void
         monto: gasto.monto,
         fecha: gasto.fecha instanceof Date ? gasto.fecha.toISOString() : gasto.fecha,
         categoria: gasto.categoria,
+        subcategoria: gasto.subcategoria || '',
         mes: gasto.mes,
         dividido: (gasto.dividido || []).map(item => ({
           amigoId: item.amigoId?.toString() || item.amigoId,
@@ -697,6 +766,7 @@ export const getGastosByCategoria = async (req: AuthRequest, res: Response): Pro
         monto: gasto.monto,
         fecha: gasto.fecha instanceof Date ? gasto.fecha.toISOString() : gasto.fecha,
         categoria: gasto.categoria,
+        subcategoria: gasto.subcategoria || '',
         mes: gasto.mes,
         dividido: (gasto.dividido || []).map(item => ({
           amigoId: item.amigoId?.toString() || item.amigoId,

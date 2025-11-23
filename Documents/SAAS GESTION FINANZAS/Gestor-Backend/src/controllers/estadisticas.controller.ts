@@ -500,7 +500,7 @@ export const getTendenciasTemporales = async (
   }
 };
 
-// 3. Obtener Análisis por Categorías
+// 3. Obtener Análisis por Categorías con Subcategorías
 export const getAnalisisCategorias = async (
   req: AuthRequest,
   res: Response
@@ -527,7 +527,7 @@ export const getAnalisisCategorias = async (
     if (!periodo || !['anual', 'mensual', 'semanal'].includes(periodo as string)) {
       res.status(400).json({
         success: false,
-        error: 'Periodo inválido'
+        error: 'Periodo inválido. Debe ser: anual, mensual o semanal'
       });
       return;
     }
@@ -543,6 +543,15 @@ export const getAnalisisCategorias = async (
     const fechaRef = fechaReferencia
       ? new Date(fechaReferencia as string)
       : new Date();
+    
+    if (isNaN(fechaRef.getTime())) {
+      res.status(400).json({
+        success: false,
+        error: 'Fecha de referencia inválida'
+      });
+      return;
+    }
+
     const { inicio, fin } = calcularRangoFechas(
       periodo as 'anual' | 'mensual' | 'semanal',
       fechaRef
@@ -563,6 +572,13 @@ export const getAnalisisCategorias = async (
         cantidad: number;
         promedio: number;
         tendencia: string;
+        subcategorias?: Array<{
+          nombre: string;
+          monto: number;
+          porcentaje: number;
+          cantidad: number;
+          promedio: number;
+        }>;
       }>;
       categoriasIngresos: Array<{
         categoria: string;
@@ -571,6 +587,13 @@ export const getAnalisisCategorias = async (
         cantidad: number;
         promedio: number;
         tendencia: string;
+        subcategorias?: Array<{
+          nombre: string;
+          monto: number;
+          porcentaje: number;
+          cantidad: number;
+          promedio: number;
+        }>;
       }>;
       totalGastos: number;
       totalIngresos: number;
@@ -581,78 +604,229 @@ export const getAnalisisCategorias = async (
       totalIngresos: 0
     };
 
-    // Obtener gastos por categoría
+    // ============================================
+    // PROCESAR GASTOS CON SUBCATEGORÍAS (usando aggregation pipeline)
+    // ============================================
     if (tipo === 'gastos' || tipo === 'ambos') {
-      const gastosPorCategoria = await Gasto.aggregate([
+      // 1. Obtener total de gastos
+      const totalGastosResult = await Gasto.aggregate([
         { $match: filtroBase },
         {
           $group: {
-            _id: '$categoria',
+            _id: null,
+            total: { $sum: '$monto' }
+          }
+        }
+      ]);
+
+      resultados.totalGastos = totalGastosResult[0]?.total || 0;
+
+      // 2. Pipeline optimizado: agrupar por categoría y subcategoría en un solo paso
+      const pipelineGastos = [
+        { $match: filtroBase },
+        {
+          $group: {
+            _id: {
+              categoria: '$categoria',
+              subcategoria: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: ['$subcategoria', null] },
+                      { $ne: ['$subcategoria', ''] },
+                      { $ne: [{ $trim: { input: '$subcategoria' } }, ''] }
+                    ]
+                  },
+                  { $trim: { input: '$subcategoria' } },
+                  null
+                ]
+              }
+            },
             monto: { $sum: '$monto' },
             cantidad: { $sum: 1 }
           }
         },
-        { $sort: { monto: -1 } },
-        { $limit: parseInt(limite as string) }
-      ]);
+        {
+          $group: {
+            _id: '$_id.categoria',
+            montoTotal: { $sum: '$monto' },
+            cantidadTotal: { $sum: '$cantidad' },
+            subcategorias: {
+              $push: {
+                $cond: [
+                  { $ne: ['$_id.subcategoria', null] },
+                  {
+                    nombre: '$_id.subcategoria',
+                    monto: '$monto',
+                    cantidad: '$cantidad'
+                  },
+                  '$$REMOVE'
+                ]
+              }
+            }
+          }
+        },
+        { $sort: { montoTotal: -1 as const } },
+        { $limit: parseInt(limite as string) || 10 }
+      ];
 
-      const totalGastos = await Gasto.aggregate([
-        { $match: filtroBase },
-        { $group: { _id: null, total: { $sum: '$monto' } } }
-      ]);
+      const categoriasAgrupadas = await Gasto.aggregate(pipelineGastos);
 
-      resultados.totalGastos = totalGastos[0]?.total || 0;
+      // 3. Formatear resultados con subcategorías
+      resultados.categoriasGastos = categoriasAgrupadas.map((cat) => {
+        const montoCategoria = cat.montoTotal;
+        const cantidadCategoria = cat.cantidadTotal;
+        const porcentajeCategoria = resultados.totalGastos > 0
+          ? (montoCategoria / resultados.totalGastos) * 100
+          : 0;
 
-      resultados.categoriasGastos = gastosPorCategoria.map((item) => ({
-        categoria: item._id,
-        monto: parseFloat(item.monto.toFixed(2)),
-        porcentaje:
-          resultados.totalGastos > 0
-            ? parseFloat(((item.monto / resultados.totalGastos) * 100).toFixed(2))
-            : 0,
-        cantidad: item.cantidad,
-        promedio: parseFloat((item.monto / item.cantidad).toFixed(2)),
-        tendencia: 'estable' // TODO: Implementar comparativa con periodo anterior
-      }));
+        // Procesar subcategorías
+        const subcategorias = (cat.subcategorias || [])
+          .filter((sub: any) => sub !== null && sub !== undefined)
+          .map((sub: any) => {
+            const montoSub = sub.monto;
+            const cantidadSub = sub.cantidad;
+            const promedioSub = cantidadSub > 0 ? montoSub / cantidadSub : 0;
+            
+            // Porcentaje relativo al monto de la categoría principal
+            const porcentajeSub = montoCategoria > 0
+              ? (montoSub / montoCategoria) * 100
+              : 0;
+
+            return {
+              nombre: sub.nombre,
+              monto: parseFloat(montoSub.toFixed(2)),
+              porcentaje: parseFloat(porcentajeSub.toFixed(2)),
+              cantidad: cantidadSub,
+              promedio: parseFloat(promedioSub.toFixed(2))
+            };
+          })
+          .sort((a: any, b: any) => b.monto - a.monto); // Ordenar por monto descendente
+
+        return {
+          categoria: cat._id,
+          monto: parseFloat(montoCategoria.toFixed(2)),
+          porcentaje: parseFloat(porcentajeCategoria.toFixed(2)),
+          cantidad: cantidadCategoria,
+          promedio: parseFloat((cantidadCategoria > 0 ? montoCategoria / cantidadCategoria : 0).toFixed(2)),
+          tendencia: 'estable', // TODO: Implementar comparativa con periodo anterior
+          subcategorias: subcategorias.length > 0 ? subcategorias : undefined
+        };
+      });
     }
 
-    // Obtener ingresos por categoría
+    // ============================================
+    // PROCESAR INGRESOS CON SUBCATEGORÍAS (usando aggregation pipeline)
+    // ============================================
     if (tipo === 'ingresos' || tipo === 'ambos') {
-      const ingresosPorCategoria = await Ingreso.aggregate([
+      // 1. Obtener total de ingresos
+      const totalIngresosResult = await Ingreso.aggregate([
         { $match: filtroBase },
         {
           $group: {
-            _id: '$categoria',
+            _id: null,
+            total: { $sum: '$monto' }
+          }
+        }
+      ]);
+
+      resultados.totalIngresos = totalIngresosResult[0]?.total || 0;
+
+      // 2. Pipeline optimizado: agrupar por categoría y subcategoría en un solo paso
+      const pipelineIngresos = [
+        { $match: filtroBase },
+        {
+          $group: {
+            _id: {
+              categoria: '$categoria',
+              subcategoria: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: ['$subcategoria', null] },
+                      { $ne: ['$subcategoria', ''] },
+                      { $ne: [{ $trim: { input: '$subcategoria' } }, ''] }
+                    ]
+                  },
+                  { $trim: { input: '$subcategoria' } },
+                  null
+                ]
+              }
+            },
             monto: { $sum: '$monto' },
             cantidad: { $sum: 1 }
           }
         },
-        { $sort: { monto: -1 } },
-        { $limit: parseInt(limite as string) }
-      ]);
+        {
+          $group: {
+            _id: '$_id.categoria',
+            montoTotal: { $sum: '$monto' },
+            cantidadTotal: { $sum: '$cantidad' },
+            subcategorias: {
+              $push: {
+                $cond: [
+                  { $ne: ['$_id.subcategoria', null] },
+                  {
+                    nombre: '$_id.subcategoria',
+                    monto: '$monto',
+                    cantidad: '$cantidad'
+                  },
+                  '$$REMOVE'
+                ]
+              }
+            }
+          }
+        },
+        { $sort: { montoTotal: -1 as const } },
+        { $limit: parseInt(limite as string) || 10 }
+      ];
 
-      const totalIngresos = await Ingreso.aggregate([
-        { $match: filtroBase },
-        { $group: { _id: null, total: { $sum: '$monto' } } }
-      ]);
+      const categoriasAgrupadas = await Ingreso.aggregate(pipelineIngresos);
 
-      resultados.totalIngresos = totalIngresos[0]?.total || 0;
+      // 3. Formatear resultados con subcategorías
+      resultados.categoriasIngresos = categoriasAgrupadas.map((cat) => {
+        const montoCategoria = cat.montoTotal;
+        const cantidadCategoria = cat.cantidadTotal;
+        const porcentajeCategoria = resultados.totalIngresos > 0
+          ? (montoCategoria / resultados.totalIngresos) * 100
+          : 0;
 
-      resultados.categoriasIngresos = ingresosPorCategoria.map((item) => ({
-        categoria: item._id,
-        monto: parseFloat(item.monto.toFixed(2)),
-        porcentaje:
-          resultados.totalIngresos > 0
-            ? parseFloat(
-                ((item.monto / resultados.totalIngresos) * 100).toFixed(2)
-              )
-            : 0,
-        cantidad: item.cantidad,
-        promedio: parseFloat((item.monto / item.cantidad).toFixed(2)),
-        tendencia: 'estable' // TODO: Implementar comparativa con periodo anterior
-      }));
+        // Procesar subcategorías
+        const subcategorias = (cat.subcategorias || [])
+          .filter((sub: any) => sub !== null && sub !== undefined)
+          .map((sub: any) => {
+            const montoSub = sub.monto;
+            const cantidadSub = sub.cantidad;
+            const promedioSub = cantidadSub > 0 ? montoSub / cantidadSub : 0;
+            
+            // Porcentaje relativo al monto de la categoría principal
+            const porcentajeSub = montoCategoria > 0
+              ? (montoSub / montoCategoria) * 100
+              : 0;
+
+            return {
+              nombre: sub.nombre,
+              monto: parseFloat(montoSub.toFixed(2)),
+              porcentaje: parseFloat(porcentajeSub.toFixed(2)),
+              cantidad: cantidadSub,
+              promedio: parseFloat(promedioSub.toFixed(2))
+            };
+          })
+          .sort((a: any, b: any) => b.monto - a.monto); // Ordenar por monto descendente
+
+        return {
+          categoria: cat._id,
+          monto: parseFloat(montoCategoria.toFixed(2)),
+          porcentaje: parseFloat(porcentajeCategoria.toFixed(2)),
+          cantidad: cantidadCategoria,
+          promedio: parseFloat((cantidadCategoria > 0 ? montoCategoria / cantidadCategoria : 0).toFixed(2)),
+          tendencia: 'estable', // TODO: Implementar comparativa con periodo anterior
+          subcategorias: subcategorias.length > 0 ? subcategorias : undefined
+        };
+      });
     }
 
+    // Respuesta final
     res.status(200).json({
       success: true,
       data: {
@@ -675,7 +849,8 @@ export const getAnalisisCategorias = async (
     console.error('Error en getAnalisisCategorias:', error);
     res.status(500).json({
       success: false,
-      error: 'Error al obtener análisis por categorías'
+      error: 'Error al obtener análisis por categorías',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

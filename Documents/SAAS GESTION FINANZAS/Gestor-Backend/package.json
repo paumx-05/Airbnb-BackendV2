@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "lint": "eslint src/**/*.ts",
-    "seed": "ts-node src/scripts/seed.ts"
+    "seed": "ts-node src/scripts/seed.ts",
+    "migrate:subcategorias": "ts-node src/scripts/migrar-subcategorias.ts"
   },
   "keywords": [
     "express",
