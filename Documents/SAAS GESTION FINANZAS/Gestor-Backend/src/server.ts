@@ -14,6 +14,7 @@ import { notificacionRoutes } from './routes/notificacion.routes';
 import { categoriaRoutes } from './routes/categoria.routes';
 import { presupuestoRoutes } from './routes/presupuesto.routes';
 import { dashboardRoutes } from './routes/dashboard.routes';
+import { estadisticasRoutes } from './routes/estadisticas.routes';
 import carteraRoutes from './routes/cartera.routes';
 import { errorHandler } from './middleware/error.middleware';
 
@@ -43,6 +44,7 @@ app.get('/', (_req, res) => {
       categorias: '/api/categorias',
       presupuestos: '/api/presupuestos',
       dashboard: '/api/dashboard',
+      estadisticas: '/api/estadisticas',
       mensajes: '/api/mensajes',
       chat: '/api/chat',
       notificaciones: '/api/notificaciones',
@@ -63,6 +65,7 @@ app.use('/api/ingresos', ingresoRoutes);
 app.use('/api/categorias', categoriaRoutes);
 app.use('/api/presupuestos', presupuestoRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/estadisticas', estadisticasRoutes);
 app.use('/api/mensajes', mensajeRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/notificaciones', notificacionRoutes);
