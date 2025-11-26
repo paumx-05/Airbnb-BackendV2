@@ -119,11 +119,6 @@ firebase-debug.*.log
 # Netlify
 .netlify
 
-# Docker
-.dockerignore
-Dockerfile
-docker-compose.yml
-docker-compose.yaml
 
 # Database
 *.sqlite
