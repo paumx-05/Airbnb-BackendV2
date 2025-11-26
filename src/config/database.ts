@@ -5,10 +5,16 @@ import mongoose from 'mongoose';
  * Conexión a MongoDB Atlas (producción)
  */
 
-export const getDatabaseConfig = () => ({
-  type: 'mongodb',
-  mongoURI: process.env.MONGODB_URI || 'mongodb://localhost:27017/airbnb-backend'
-});
+export const getDatabaseConfig = () => {
+  const mongoURI = process.env.MONGODB_URI;
+  if (!mongoURI) {
+    throw new Error('MONGODB_URI debe estar definida en las variables de entorno');
+  }
+  return {
+    type: 'mongodb',
+    mongoURI
+  };
+};
 
 const connectDB = async (): Promise<void> => {
   const config = getDatabaseConfig();
