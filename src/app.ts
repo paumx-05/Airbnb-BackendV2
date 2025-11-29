@@ -26,6 +26,13 @@ dotenv.config();
 const app = express();
 
 // =============================================================================
+// CONFIGURACIÓN DE PROXY (IMPORTANTE PARA VPS CON NGINX)
+// =============================================================================
+// Confiar en el proxy reverso para obtener la IP real del cliente
+// Esto es esencial cuando el servidor está detrás de nginx, load balancer, etc.
+app.set('trust proxy', true);
+
+// =============================================================================
 // MIDDLEWARES BÁSICOS (ORDEN IMPORTANTE)
 // =============================================================================
 // Middleware de seguridad con Helmet
